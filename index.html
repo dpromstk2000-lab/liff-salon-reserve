@@ -10,16 +10,16 @@
     <p>接続確認：<span id="status">接続中...</span></p>
 
     <script>
-        // 設定されたSupabaseの情報を適用しました
         const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // 名前を sbClient に変更して重複を回避します
+        const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // 接続テスト
         async function testConnection() {
             try {
-                const { data, error } = await supabase.from('bookings').select('*').limit(1);
+                // ここも sbClient に変更します
+                const { data, error } = await sbClient.from('bookings').select('*').limit(1);
                 if (error) {
                     document.getElementById('status').innerText = 'エラー: ' + error.message;
                 } else {
