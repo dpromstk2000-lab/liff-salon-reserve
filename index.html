@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <title>サロン予約システム</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
     <h1>サロン予約システム</h1>
     
-    <div>
-        <input type="text" id="customer-name" placeholder="お名前">
+    <div id="booking-form">
+        <p>予約者: <span id="line-display-name">読み込み中...</span></p>
+        <input type="text" id="customer-name" placeholder="氏名（漢字）">
         <input type="datetime-local" id="start-datetime">
         <button onclick="saveBooking()">予約する</button>
     </div>
@@ -18,37 +20,55 @@
     <ul id="booking-list"></ul>
 
     <script>
-        const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
+        const SUPABASE_URL = 'https://chknucemarcpbsclrzyu.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_ct4vj8FoU1MtjFayuk/HWw_YcuSMR5J';
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // LIFF初期化
+        liff.init({ liffId: "2010243135-H06VsAHm" }).then(() => {
+            if (liff.isLoggedIn()) {
+                liff.getProfile().then(profile => {
+                    document.getElementById('line-display-name').innerText = profile.displayName;
+                });
+            } else {
+                liff.login();
+            }
+        });
 
         // 予約データを保存
         async function saveBooking() {
-            const name = document.getElementById('customer-name').value;
+            const profile = await liff.getProfile();
+            const realName = document.getElementById('customer-name').value;
             const start = document.getElementById('start-datetime').value;
-            const { error } = await sbClient.from('bookings').insert([{ customer_name: name, start_datetime: start }]);
+
+            const { error } = await sbClient.from('bookings').insert([{ 
+                customer_name: realName, 
+                line_display_name: profile.displayName,
+                line_user_id: profile.userId,
+                start_datetime: start 
+            }]);
+
             if (error) alert('失敗: ' + error.message);
             else {
                 alert('予約完了！');
-                fetchBookings(); // 保存後にリストを更新
+                fetchBookings();
             }
         }
 
-        // 予約一覧を取得して表示
+        // 予約一覧を取得
         async function fetchBookings() {
-            const { data, error } = await sbClient.from('bookings').select('*');
+            const { data } = await sbClient.from('bookings').select('*');
             const list = document.getElementById('booking-list');
-            list.innerHTML = ''; // 一度空にする
+            list.innerHTML = '';
             if (data) {
                 data.forEach(item => {
                     const li = document.createElement('li');
-                    li.innerText = `${item.customer_name} 様 - ${item.start_datetime}`;
-                    list.appendChild(li);
+                    li.innerText = `${item.customer_name || '名無し'} 様 (LINE: ${item.line_display_name}) - ${new Date(item.start_datetime).toLocaleString()}`;
+                    list.append(li);
                 });
             }
         }
 
-        // ページを開いたときに自動でリストを表示
         fetchBookings();
     </script>
 </body>
