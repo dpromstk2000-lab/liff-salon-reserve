@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>予約管理システム</title>
-    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -13,17 +12,17 @@
     <ul id="booking-list">読み込み中...</ul>
 
     <script>
-        // Supabase設定（あなたのキーに置き換えてください）
-        const SUPABASE_URL = 'あなたのURL';
-        const SUPABASE_ANON_KEY = 'あなたのキー';
+        // 設定を修正しました
+        const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTcyMjU0MTQsImV4cCI6MjAzMjc4MTQxNH0.C6S68D5D55F3540';
+        
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 予約データの取得と表示（日付の近い順にソート）
         async function fetchBookings() {
             const { data, error } = await sbClient
                 .from('bookings')
                 .select('*')
-                .order('start_datetime', { ascending: true }); // ここでソート
+                .order('start_datetime', { ascending: true });
             
             const list = document.getElementById('booking-list');
             list.innerHTML = '';
@@ -36,7 +35,6 @@
             if (data && data.length > 0) {
                 data.forEach(item => {
                     const li = document.createElement('li');
-                    // 日付を見やすく表示し、削除ボタンを配置
                     const dateStr = new Date(item.start_datetime).toLocaleString();
                     li.innerHTML = `<strong>${item.customer_name}</strong> - ${dateStr} 
                                     <button onclick="deleteBooking(${item.id})">削除</button>`;
@@ -47,7 +45,6 @@
             }
         }
 
-        // 予約データの削除
         async function deleteBooking(id) {
             if (!confirm('本当に削除しますか？')) return;
             
@@ -60,11 +57,10 @@
                 alert('削除失敗: ' + error.message);
             } else {
                 alert('削除しました');
-                fetchBookings(); // リストを再読み込み
+                fetchBookings();
             }
         }
 
-        // ページ読み込み時に実行
         fetchBookings();
     </script>
 </body>
