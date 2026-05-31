@@ -1,79 +1,70 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>サロン予約システム</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>予約管理システム</title>
+    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-    <h1>サロン予約システム</h1>
-    
-    <div id="booking-form">
-        <p>予約者: <span id="line-display-name">読み込み中...</span></p>
-        <input type="text" id="customer-name" placeholder="氏名（漢字）">
-        <input type="datetime-local" id="start-datetime">
-        <button onclick="saveBooking()">予約する</button>
-    </div>
 
-    <h2>現在の予約一覧</h2>
-    <ul id="booking-list"></ul>
+    <h1>予約一覧</h1>
+    <ul id="booking-list">読み込み中...</ul>
 
     <script>
-        // 正しい接続情報に更新済み
-        const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
-        const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Supabase設定（あなたのキーに置き換えてください）
+        const SUPABASE_URL = 'あなたのURL';
+        const SUPABASE_ANON_KEY = 'あなたのキー';
+        const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // LIFF初期化
-        liff.init({ liffId: "2010243135-H06VsAHm" }).then(() => {
-            if (liff.isLoggedIn()) {
-                liff.getProfile().then(profile => {
-                    document.getElementById('line-display-name').innerText = profile.displayName;
-                }).catch(err => console.error("プロファイル取得失敗", err));
-            } else {
-                liff.login();
-            }
-        });
-
-        async function saveBooking() {
-            try {
-                const profile = await liff.getProfile();
-                const realName = document.getElementById('customer-name').value;
-                const start = document.getElementById('start-datetime').value;
-
-                if (!realName || !start) {
-                    alert("お名前と日時を入力してください！");
-                    return;
-                }
-
-                const { error } = await sbClient.from('bookings').insert([{ 
-                    customer_name: realName, 
-                    line_display_name: profile.displayName,
-                    line_user_id: profile.userId,
-                    start_datetime: start 
-                }]);
-
-                if (error) throw error;
-                alert('予約完了！');
-                fetchBookings();
-            } catch (err) {
-                alert('エラー発生: ' + err.message);
-            }
-        }
-
+        // 予約データの取得と表示（日付の近い順にソート）
         async function fetchBookings() {
-            const { data } = await sbClient.from('bookings').select('*');
+            const { data, error } = await sbClient
+                .from('bookings')
+                .select('*')
+                .order('start_datetime', { ascending: true }); // ここでソート
+            
             const list = document.getElementById('booking-list');
             list.innerHTML = '';
-            if (data) {
+            
+            if (error) {
+                list.innerHTML = 'エラー: ' + error.message;
+                return;
+            }
+
+            if (data && data.length > 0) {
                 data.forEach(item => {
                     const li = document.createElement('li');
-                    li.innerText = `${item.customer_name || '名無し'} 様 (LINE: ${item.line_display_name}) - ${new Date(item.start_datetime).toLocaleString()}`;
+                    // 日付を見やすく表示し、削除ボタンを配置
+                    const dateStr = new Date(item.start_datetime).toLocaleString();
+                    li.innerHTML = `<strong>${item.customer_name}</strong> - ${dateStr} 
+                                    <button onclick="deleteBooking(${item.id})">削除</button>`;
                     list.append(li);
                 });
+            } else {
+                list.innerHTML = '現在、予約はありません。';
             }
         }
+
+        // 予約データの削除
+        async function deleteBooking(id) {
+            if (!confirm('本当に削除しますか？')) return;
+            
+            const { error } = await sbClient
+                .from('bookings')
+                .delete()
+                .eq('id', id);
+            
+            if (error) {
+                alert('削除失敗: ' + error.message);
+            } else {
+                alert('削除しました');
+                fetchBookings(); // リストを再読み込み
+            }
+        }
+
+        // ページ読み込み時に実行
         fetchBookings();
     </script>
 </body>
