@@ -2,11 +2,30 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>サロン予約</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <h1>サロン予約システム（プロトタイプ）</h1>
-    <p>まずはここからスタート！</p>
+    <h1>サロン予約システム</h1>
+    <p>接続確認：<span id="status">接続中...</span></p>
+
+    <script>
+        // ★ここにあなたのSupabase情報を入れます
+        const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
+        const SUPABASE_KEY = 'ここにsb_publishableで始まる長い文字列を貼り付け';
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 接続テスト
+        async function testConnection() {
+            const { data, error } = await supabase.from('bookings').select('*').limit(1);
+            if (error) {
+                document.getElementById('status').innerText = 'エラー: ' + error.message;
+            } else {
+                document.getElementById('status').innerText = 'データベースに接続成功！';
+            }
+        }
+        testConnection();
+    </script>
 </body>
 </html>
