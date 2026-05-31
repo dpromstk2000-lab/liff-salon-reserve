@@ -12,12 +12,13 @@
     <ul id="booking-list">読み込み中...</ul>
 
     <script>
-        // 設定を修正しました
+        // 設定を正しい情報で埋め込みました
         const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTcyMjU0MTQsImV4cCI6MjAzMjc4MTQxNH0.C6S68D5D55F3540';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE';
         
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // 予約データの取得と表示（日付の近い順にソート）
         async function fetchBookings() {
             const { data, error } = await sbClient
                 .from('bookings')
@@ -45,6 +46,7 @@
             }
         }
 
+        // 予約データの削除
         async function deleteBooking(id) {
             if (!confirm('本当に削除しますか？')) return;
             
@@ -57,10 +59,11 @@
                 alert('削除失敗: ' + error.message);
             } else {
                 alert('削除しました');
-                fetchBookings();
+                fetchBookings(); // リストを再読み込み
             }
         }
 
+        // ページ読み込み時に実行
         fetchBookings();
     </script>
 </body>
