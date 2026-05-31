@@ -2,51 +2,54 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>サロン予約</title>
+    <title>サロン予約システム</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <h1>サロン予約システム</h1>
-    <p>接続状況：<span id="status">接続中...</span></p>
-
-    <div id="booking-form">
+    
+    <div>
         <input type="text" id="customer-name" placeholder="お名前">
         <input type="datetime-local" id="start-datetime">
         <button onclick="saveBooking()">予約する</button>
     </div>
 
+    <h2>現在の予約一覧</h2>
+    <ul id="booking-list"></ul>
+
     <script>
         const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
-
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // 接続テスト（既存）
-        async function testConnection() {
-            try {
-                const { error } = await sbClient.from('bookings').select('*').limit(1);
-                document.getElementById('status').innerText = error ? 'エラー: ' + error.message : 'データベースに接続成功！';
-            } catch (err) {
-                document.getElementById('status').innerText = '接続失敗';
-            }
-        }
-        testConnection();
-
-        // 予約データを保存する機能
+        // 予約データを保存
         async function saveBooking() {
             const name = document.getElementById('customer-name').value;
             const start = document.getElementById('start-datetime').value;
-
-            const { data, error } = await sbClient
-                .from('bookings')
-                .insert([{ customer_name: name, start_datetime: start }]);
-
-            if (error) {
-                alert('予約失敗: ' + error.message);
-            } else {
-                alert('予約が完了しました！');
+            const { error } = await sbClient.from('bookings').insert([{ customer_name: name, start_datetime: start }]);
+            if (error) alert('失敗: ' + error.message);
+            else {
+                alert('予約完了！');
+                fetchBookings(); // 保存後にリストを更新
             }
         }
+
+        // 予約一覧を取得して表示
+        async function fetchBookings() {
+            const { data, error } = await sbClient.from('bookings').select('*');
+            const list = document.getElementById('booking-list');
+            list.innerHTML = ''; // 一度空にする
+            if (data) {
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerText = `${item.customer_name} 様 - ${item.start_datetime}`;
+                    list.appendChild(li);
+                });
+            }
+        }
+
+        // ページを開いたときに自動でリストを表示
+        fetchBookings();
     </script>
 </body>
 </html>
