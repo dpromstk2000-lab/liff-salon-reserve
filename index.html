@@ -7,29 +7,46 @@
 </head>
 <body>
     <h1>サロン予約システム</h1>
-    <p>接続確認：<span id="status">接続中...</span></p>
+    <p>接続状況：<span id="status">接続中...</span></p>
+
+    <div id="booking-form">
+        <input type="text" id="customer-name" placeholder="お名前">
+        <input type="datetime-local" id="start-datetime">
+        <button onclick="saveBooking()">予約する</button>
+    </div>
 
     <script>
         const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
 
-        // 名前を sbClient に変更して重複を回避します
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // 接続テスト（既存）
         async function testConnection() {
             try {
-                // ここも sbClient に変更します
-                const { data, error } = await sbClient.from('bookings').select('*').limit(1);
-                if (error) {
-                    document.getElementById('status').innerText = 'エラー: ' + error.message;
-                } else {
-                    document.getElementById('status').innerText = 'データベースに接続成功！';
-                }
+                const { error } = await sbClient.from('bookings').select('*').limit(1);
+                document.getElementById('status').innerText = error ? 'エラー: ' + error.message : 'データベースに接続成功！';
             } catch (err) {
-                document.getElementById('status').innerText = '接続失敗: ' + err.message;
+                document.getElementById('status').innerText = '接続失敗';
             }
         }
         testConnection();
+
+        // 予約データを保存する機能
+        async function saveBooking() {
+            const name = document.getElementById('customer-name').value;
+            const start = document.getElementById('start-datetime').value;
+
+            const { data, error } = await sbClient
+                .from('bookings')
+                .insert([{ customer_name: name, start_datetime: start }]);
+
+            if (error) {
+                alert('予約失敗: ' + error.message);
+            } else {
+                alert('予約が完了しました！');
+            }
+        }
     </script>
 </body>
 </html>
