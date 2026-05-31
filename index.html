@@ -20,8 +20,9 @@
     <ul id="booking-list"></ul>
 
     <script>
-        const SUPABASE_URL = 'https://chknucemarcpbsclrzyu.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_ct4vj8FoU1MtjFayuk/HWw_YcuSMR5J';
+        // 正しい接続情報に更新済み
+        const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // LIFF初期化
@@ -29,33 +30,38 @@
             if (liff.isLoggedIn()) {
                 liff.getProfile().then(profile => {
                     document.getElementById('line-display-name').innerText = profile.displayName;
-                });
+                }).catch(err => console.error("プロファイル取得失敗", err));
             } else {
                 liff.login();
             }
         });
 
-        // 予約データを保存
         async function saveBooking() {
-            const profile = await liff.getProfile();
-            const realName = document.getElementById('customer-name').value;
-            const start = document.getElementById('start-datetime').value;
+            try {
+                const profile = await liff.getProfile();
+                const realName = document.getElementById('customer-name').value;
+                const start = document.getElementById('start-datetime').value;
 
-            const { error } = await sbClient.from('bookings').insert([{ 
-                customer_name: realName, 
-                line_display_name: profile.displayName,
-                line_user_id: profile.userId,
-                start_datetime: start 
-            }]);
+                if (!realName || !start) {
+                    alert("お名前と日時を入力してください！");
+                    return;
+                }
 
-            if (error) alert('失敗: ' + error.message);
-            else {
+                const { error } = await sbClient.from('bookings').insert([{ 
+                    customer_name: realName, 
+                    line_display_name: profile.displayName,
+                    line_user_id: profile.userId,
+                    start_datetime: start 
+                }]);
+
+                if (error) throw error;
                 alert('予約完了！');
                 fetchBookings();
+            } catch (err) {
+                alert('エラー発生: ' + err.message);
             }
         }
 
-        // 予約一覧を取得
         async function fetchBookings() {
             const { data } = await sbClient.from('bookings').select('*');
             const list = document.getElementById('booking-list');
@@ -68,7 +74,6 @@
                 });
             }
         }
-
         fetchBookings();
     </script>
 </body>
