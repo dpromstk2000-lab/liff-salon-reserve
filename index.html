@@ -2,7 +2,6 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salon Booking System</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -29,13 +28,12 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
 
     async function fetchBookings() {
-        // ★修正: UTC変換のズレを防ぐため、単純な文字列として扱う
         const { data } = await sbClient.from('bookings').select('*').order('start_datetime', { ascending: true });
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         if (data) {
             data.forEach(item => {
-                // 文字列のまま日時を表示（Tを空白に置換）
+                // データベースから取得した時刻文字列をそのまま表示
                 const displayTime = item.start_datetime.replace('T', ' ').substring(0, 16);
                 const li = document.createElement('li');
                 li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${displayTime}</div>
@@ -51,7 +49,6 @@
     function editBooking(id, name, datetime) {
         document.getElementById('edit_id').value = id;
         document.getElementById('customer_name').value = name;
-        // 秒の部分まで含んでいる場合を考慮して切り詰め
         document.getElementById('start_datetime').value = datetime.substring(0, 16);
         document.getElementById('save_btn').innerText = '変更を保存';
     }
@@ -59,17 +56,14 @@
     async function saveBooking() {
         const id = document.getElementById('edit_id').value;
         const name = document.getElementById('customer_name').value;
-        const time = document.getElementById('start_datetime').value;
+        const time = document.getElementById('start_datetime').value; // これをそのまま保存
         
         if (!name || !time) return alert('入力してください');
 
-        // ★IDが空文字('')ならINSERT、値があればUPDATE
         if (id !== '') {
-            const { error } = await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', parseInt(id));
-            if (error) alert('更新エラー: ' + error.message);
+            await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', parseInt(id));
         } else {
-            const { error } = await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
-            if (error) alert('登録エラー: ' + error.message);
+            await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
         }
         clearForm();
         await fetchBookings();
