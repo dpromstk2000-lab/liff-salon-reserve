@@ -2,78 +2,77 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salon Booking App</title>
+    <title>予約管理システム（編集対応）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f9f7f6; color: #333; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #555; font-size: 24px; margin-bottom: 25px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-size: 14px; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #8e7f7f; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        hr { margin: 30px 0; border: 0; border-top: 1px solid #eee; }
-        li { list-style: none; padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .del-btn { width: auto; padding: 5px 10px; font-size: 12px; background: #e74c3c; margin-top: 0; }
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        input { width: 100%; margin-bottom: 10px; padding: 8px; }
+        button { padding: 10px; cursor: pointer; }
+        .item { border-bottom: 1px solid #ccc; padding: 10px 0; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <h1>予約フォーム</h1>
-    <div class="form-group">
-        <label>お名前</label>
-        <input type="text" id="customer_name" placeholder="山田 太郎">
-    </div>
-    <div class="form-group">
-        <label>希望日時</label>
+    <div class="container">
+        <h2>予約・編集フォーム</h2>
+        <input type="hidden" id="edit_id">
+        <input type="text" id="customer_name" placeholder="お名前">
         <input type="datetime-local" id="start_datetime">
+        <button id="save_btn" onclick="saveBooking()">予約を保存</button>
+        <button onclick="clearForm()">クリア</button>
+
+        <hr>
+        <ul id="booking-list"></ul>
     </div>
-    <button onclick="addBooking()">予約を確定する</button>
 
-    <hr>
+    <script>
+        const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
 
-    <h1>現在の予約状況</h1>
-    <ul id="booking-list">読み込み中...</ul>
-</div>
-
-<script>
-    const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE';
-    const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    async function fetchBookings() {
-        const { data } = await sbClient.from('bookings').select('*').order('start_datetime', { ascending: true });
-        const list = document.getElementById('booking-list');
-        list.innerHTML = '';
-        if (data) {
+        async function fetchBookings() {
+            const { data } = await sbClient.from('bookings').select('*').order('start_datetime', { ascending: true });
+            const list = document.getElementById('booking-list');
+            list.innerHTML = '';
             data.forEach(item => {
                 const li = document.createElement('li');
-                li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${new Date(item.start_datetime).toLocaleString()}</div>
-                                <button class="del-btn" onclick="deleteBooking(${item.id})">削除</button>`;
+                li.className = 'item';
+                li.innerHTML = `<div>${item.customer_name}<br>${new Date(item.start_datetime).toLocaleString()}</div>
+                                <div>
+                                    <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}')">編集</button>
+                                    <button onclick="deleteBooking(${item.id})" style="background:red; color:white;">削除</button>
+                                </div>`;
                 list.append(li);
             });
         }
-    }
 
-    async function addBooking() {
-        const name = document.getElementById('customer_name').value;
-        const time = document.getElementById('start_datetime').value;
-        if (!name || !time) return alert('入力してください');
+        function editBooking(id, name, datetime) {
+            document.getElementById('edit_id').value = id;
+            document.getElementById('customer_name').value = name;
+            document.getElementById('start_datetime').value = datetime.slice(0, 16);
+            document.getElementById('save_btn').innerText = '変更を保存';
+        }
 
-        const { error } = await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
-        if (error) alert('失敗: ' + error.message);
-        else { alert('予約完了！'); fetchBookings(); }
-    }
+        async function saveBooking() {
+            const id = document.getElementById('edit_id').value;
+            const name = document.getElementById('customer_name').value;
+            const time = document.getElementById('start_datetime').value;
 
-    async function deleteBooking(id) {
-        if (!confirm('削除しますか？')) return;
-        await sbClient.from('bookings').delete().eq('id', id);
+            if (id) {
+                await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
+            } else {
+                await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
+            }
+            clearForm();
+            fetchBookings();
+        }
+
+        function clearForm() {
+            document.getElementById('edit_id').value = '';
+            document.getElementById('customer_name').value = '';
+            document.getElementById('start_datetime').value = '';
+            document.getElementById('save_btn').innerText = '予約を確定する';
+        }
+
         fetchBookings();
-    }
-
-    fetchBookings();
-</script>
+    </script>
 </body>
 </html>
