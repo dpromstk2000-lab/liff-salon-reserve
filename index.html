@@ -6,33 +6,22 @@
     <title>Salon Booking System</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #fcfbf9; color: #4a4a4a; padding: 20px; }
-        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #7d7070; font-weight: 300; margin-bottom: 25px; }
-        .input-box { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid #e8e8e8; border-radius: 8px; box-sizing: border-box; }
-        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        button { flex: 1; padding: 14px; border: none; border-radius: 8px; cursor: pointer; color: white; background: #8e7f7f; transition: 0.3s; }
-        button:hover { opacity: 0.8; }
-        button.cancel { background: #ccc; }
-        li { list-style: none; border-bottom: 1px solid #f9f9f9; padding: 18px 0; display: flex; justify-content: space-between; align-items: center; }
-        .list-info { font-size: 15px; line-height: 1.5; }
-        .list-actions { display: flex; gap: 8px; }
-        .action-btn { padding: 6px 12px; font-size: 13px; border-radius: 5px; }
-        .del-btn { background: #d9a0a0; }
+        body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; margin-bottom: 5px; }
+        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>サロン予約管理</h2>
+    <h2>予約管理</h2>
     <input type="hidden" id="edit_id">
     <input type="text" id="customer_name" class="input-box" placeholder="お客様名">
     <input type="datetime-local" id="start_datetime" class="input-box">
-    <div class="btn-group">
-        <button id="save_btn" onclick="saveBooking()">予約を登録</button>
-        <button class="cancel" onclick="clearForm()">クリア</button>
-    </div>
-
+    <button id="save_btn" onclick="saveBooking()">予約を登録</button>
+    <button onclick="clearForm()">クリア</button>
     <ul id="booking-list" style="padding:0;"></ul>
 </div>
 
@@ -40,19 +29,19 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
 
     async function fetchBookings() {
+        // ★修正: UTC変換のズレを防ぐため、単純な文字列として扱う
         const { data } = await sbClient.from('bookings').select('*').order('start_datetime', { ascending: true });
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         if (data) {
             data.forEach(item => {
-                const date = new Date(item.start_datetime);
-                const dateStr = `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-                
+                // 文字列のまま日時を表示（Tを空白に置換）
+                const displayTime = item.start_datetime.replace('T', ' ').substring(0, 16);
                 const li = document.createElement('li');
-                li.innerHTML = `<div class="list-info"><strong>${item.customer_name}</strong><br>${dateStr}</div>
-                                <div class="list-actions">
-                                    <button class="action-btn" onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}')">編集</button>
-                                    <button class="action-btn del-btn" onclick="deleteBooking(${item.id})">削除</button>
+                li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${displayTime}</div>
+                                <div>
+                                    <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}')">編集</button>
+                                    <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0;">削除</button>
                                 </div>`;
                 list.append(li);
             });
@@ -62,9 +51,9 @@
     function editBooking(id, name, datetime) {
         document.getElementById('edit_id').value = id;
         document.getElementById('customer_name').value = name;
-        document.getElementById('start_datetime').value = datetime.slice(0, 16);
+        // 秒の部分まで含んでいる場合を考慮して切り詰め
+        document.getElementById('start_datetime').value = datetime.substring(0, 16);
         document.getElementById('save_btn').innerText = '変更を保存';
-        window.scrollTo(0, 0); // フォームへ移動
     }
 
     async function saveBooking() {
@@ -72,20 +61,17 @@
         const name = document.getElementById('customer_name').value;
         const time = document.getElementById('start_datetime').value;
         
-        if (!name || !time) return alert('お名前と日時を入力してください');
+        if (!name || !time) return alert('入力してください');
 
-        if (id) {
-            await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
+        // ★IDが空文字('')ならINSERT、値があればUPDATE
+        if (id !== '') {
+            const { error } = await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', parseInt(id));
+            if (error) alert('更新エラー: ' + error.message);
         } else {
-            await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
+            const { error } = await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
+            if (error) alert('登録エラー: ' + error.message);
         }
         clearForm();
-        await fetchBookings();
-    }
-
-    async function deleteBooking(id) {
-        if (!confirm('この予約を削除しますか？')) return;
-        await sbClient.from('bookings').delete().eq('id', id);
         await fetchBookings();
     }
 
