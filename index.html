@@ -1,18 +1,60 @@
-async function renderTimeSlots() {
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Salon Booking System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        /* ラベルのスタイルを追加 */
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .selected-slot { background: #d9a0a0 !important; border: 2px solid #a87070; }
+        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>予約管理</h2>
+    <input type="hidden" id="edit_id">
+    
+    <label>お客様名（漢字）</label>
+    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
+    
+    <label>予約希望日</label>
+    <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
+    
+    <label>時間を選択</label>
+    <div id="time-slots"></div>
+    <input type="hidden" id="selected_datetime">
+    
+    <button id="save_btn" onclick="saveBooking()" style="width:100%; margin-bottom:10px;">予約を登録</button>
+    <button onclick="clearForm()" style="width:100%; background:#aaa;">クリア</button>
+    <ul id="booking-list" style="padding:0; margin-top:20px;"></ul>
+</div>
+
+<script>
+    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
+
+    document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
+
+    async function renderTimeSlots() {
         const date = document.getElementById('select_date').value;
         const selectedVal = document.getElementById('selected_datetime').value;
         if (!date) return;
 
-        // 【確実なデータ取得】その日の00:00:00から23:59:59までをピンポイントで取得
         const { data: bookings } = await sbClient
             .from('bookings')
             .select('start_datetime')
             .gte('start_datetime', `${date}T00:00:00`)
             .lte('start_datetime', `${date}T23:59:59`);
 
-        // その日の予約時間だけを抽出 (例: "10:30")
         const bookedTimes = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
-        
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
         
@@ -20,15 +62,11 @@ async function renderTimeSlots() {
             [0, 30].forEach(m => {
                 const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const fullTime = `${date}T${timeStr}:00`;
-                
-                // 【超重要】ボタンを作る際、現在の日付に対する予約かを確認
                 const isBooked = bookedTimes.includes(timeStr);
                 
                 const btn = document.createElement('button');
                 btn.innerText = isBooked ? '×' : timeStr;
                 btn.disabled = isBooked;
-                
-                // 選択状態の復元
                 if (selectedVal === fullTime) btn.classList.add('selected-slot');
                 
                 btn.onclick = function() {
@@ -40,3 +78,55 @@ async function renderTimeSlots() {
             });
         }
     }
+
+    async function saveBooking() {
+        const id = document.getElementById('edit_id').value;
+        const name = document.getElementById('customer_name').value.trim();
+        const time = document.getElementById('selected_datetime').value;
+        
+        // 漢字バリデーション（簡易的に「文字数」と「空でないこと」をチェック）
+        if (!name) return alert('氏名を入力してください');
+        if (name.length < 2) return alert('氏名は2文字以上で入力してください');
+        if (!time) return alert('時間を選択してください');
+
+        if (id) await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
+        else await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
+        
+        clearForm(); fetchBookings(); renderTimeSlots();
+    }
+
+    // （以下略：editBooking, deleteBooking, fetchBookingsは変更なし）
+    async function fetchBookings() {
+        const { data } = await sbClient.from('bookings').select('*').order('start_datetime');
+        const list = document.getElementById('booking-list');
+        list.innerHTML = '';
+        data?.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0, 16)}</div>
+                            <div>
+                                <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}')">編集</button>
+                                <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0;">削除</button>
+                            </div>`;
+            list.append(li);
+        });
+    }
+    function editBooking(id, name, datetime) {
+        document.getElementById('edit_id').value = id;
+        document.getElementById('customer_name').value = name;
+        document.getElementById('select_date').value = datetime.substring(0, 10);
+        document.getElementById('selected_datetime').value = datetime;
+        document.getElementById('save_btn').innerText = '変更を保存';
+        renderTimeSlots();
+    }
+    async function deleteBooking(id) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); renderTimeSlots(); }
+    function clearForm() { 
+        document.getElementById('edit_id').value = ''; 
+        document.getElementById('customer_name').value = ''; 
+        document.getElementById('selected_datetime').value = '';
+        document.getElementById('save_btn').innerText = '予約を登録';
+        renderTimeSlots();
+    }
+    fetchBookings();
+</script>
+</body>
+</html>
