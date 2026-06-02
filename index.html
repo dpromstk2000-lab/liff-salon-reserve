@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salon Booking System</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        /* ラベルのスタイルを追加 */
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
         #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
         button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; }
@@ -35,7 +35,9 @@
     
     <button id="save_btn" onclick="saveBooking()" style="width:100%; margin-bottom:10px;">予約を登録</button>
     <button onclick="clearForm()" style="width:100%; background:#aaa;">クリア</button>
-    <ul id="booking-list" style="padding:0; margin-top:20px;"></ul>
+    
+    <h3 style="margin-top:30px;">今後の予約一覧</h3>
+    <ul id="booking-list" style="padding:0;"></ul>
 </div>
 
 <script>
@@ -43,6 +45,7 @@
 
     document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
 
+    // 時間枠の描画（予約済み除外）
     async function renderTimeSlots() {
         const date = document.getElementById('select_date').value;
         const selectedVal = document.getElementById('selected_datetime').value;
@@ -79,25 +82,15 @@
         }
     }
 
-    async function saveBooking() {
-        const id = document.getElementById('edit_id').value;
-        const name = document.getElementById('customer_name').value.trim();
-        const time = document.getElementById('selected_datetime').value;
-        
-        // 漢字バリデーション（簡易的に「文字数」と「空でないこと」をチェック）
-        if (!name) return alert('氏名を入力してください');
-        if (name.length < 2) return alert('氏名は2文字以上で入力してください');
-        if (!time) return alert('時間を選択してください');
-
-        if (id) await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
-        else await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
-        
-        clearForm(); fetchBookings(); renderTimeSlots();
-    }
-
-    // （以下略：editBooking, deleteBooking, fetchBookingsは変更なし）
+    // 今後の予約のみ取得
     async function fetchBookings() {
-        const { data } = await sbClient.from('bookings').select('*').order('start_datetime');
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await sbClient
+            .from('bookings')
+            .select('*')
+            .gte('start_datetime', `${today}T00:00:00`)
+            .order('start_datetime', { ascending: true });
+        
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         data?.forEach(item => {
@@ -110,6 +103,21 @@
             list.append(li);
         });
     }
+
+    async function saveBooking() {
+        const id = document.getElementById('edit_id').value;
+        const name = document.getElementById('customer_name').value.trim();
+        const time = document.getElementById('selected_datetime').value;
+        
+        if (!name || name.length < 2) return alert('氏名を2文字以上で入力してください');
+        if (!time) return alert('時間を選択してください');
+
+        if (id) await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
+        else await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time });
+        
+        clearForm(); fetchBookings(); renderTimeSlots();
+    }
+
     function editBooking(id, name, datetime) {
         document.getElementById('edit_id').value = id;
         document.getElementById('customer_name').value = name;
@@ -118,6 +126,7 @@
         document.getElementById('save_btn').innerText = '変更を保存';
         renderTimeSlots();
     }
+
     async function deleteBooking(id) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); renderTimeSlots(); }
     function clearForm() { 
         document.getElementById('edit_id').value = ''; 
@@ -126,6 +135,7 @@
         document.getElementById('save_btn').innerText = '予約を登録';
         renderTimeSlots();
     }
+
     fetchBookings();
 </script>
 </body>
