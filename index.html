@@ -11,8 +11,8 @@
         #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
         button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        /* 選択中ボタンのスタイル */
-        .selected-slot { background: #d9a0a0 !important; transform: scale(0.95); }
+        /* 選択中の色を固定 */
+        .selected-slot { background: #d9a0a0 !important; border: 2px solid #a87070; }
         li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
@@ -38,8 +38,16 @@
 
     async function renderTimeSlots() {
         const date = document.getElementById('select_date').value;
+        const selectedVal = document.getElementById('selected_datetime').value;
         if (!date) return;
-        const { data: bookings } = await sbClient.from('bookings').select('start_datetime');
+
+        // 【修正】その日付のデータだけをピンポイントで取得するように変更
+        const { data: bookings } = await sbClient
+            .from('bookings')
+            .select('start_datetime')
+            .gte('start_datetime', `${date}T00:00:00`)
+            .lte('start_datetime', `${date}T23:59:59`);
+
         const bookedTimes = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
@@ -47,15 +55,18 @@
         for (let h = 10; h < 19; h++) {
             [0, 30].forEach(m => {
                 const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const fullTime = `${date}T${timeStr}:00`;
                 const btn = document.createElement('button');
                 btn.innerText = bookedTimes.includes(timeStr) ? '×' : timeStr;
                 btn.disabled = bookedTimes.includes(timeStr);
                 
+                // 【修正】選択状態を維持するためのクラス付与
+                if (selectedVal === fullTime) btn.classList.add('selected-slot');
+                
                 btn.onclick = function() {
-                    // 他の選択状態を解除して今のボタンにクラスを追加
                     document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
                     this.classList.add('selected-slot');
-                    document.getElementById('selected_datetime').value = `${date}T${timeStr}:00`;
+                    document.getElementById('selected_datetime').value = fullTime;
                 };
                 container.appendChild(btn);
             });
@@ -100,8 +111,9 @@
     function clearForm() { 
         document.getElementById('edit_id').value = ''; 
         document.getElementById('customer_name').value = ''; 
+        document.getElementById('selected_datetime').value = '';
         document.getElementById('save_btn').innerText = '予約を登録';
-        document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
+        renderTimeSlots();
     }
 
     fetchBookings();
