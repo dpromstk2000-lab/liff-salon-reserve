@@ -31,7 +31,7 @@
         <div id="holiday-control" style="margin-bottom:15px;">
             <button id="holiday-btn" onclick="toggleHoliday()" style="width:100%;"></button>
         </div>
-        <div class="input-group" style="background:#f4f4f4; padding:10px; margin-bottom:10px;">
+        <div id="booking-input-area" class="input-group" style="background:#f4f4f4; padding:10px; margin-bottom:10px;">
             <h4>電話予約の追加</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%;">
             <select id="new-time" style="width:100%; margin:5px 0;"></select>
@@ -45,7 +45,6 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
 
-    // 予約枠の生成
     const select = document.getElementById('new-time');
     for(let h=10; h<19; h++) {
         [0, 30].forEach(m => {
@@ -63,8 +62,7 @@
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
         fetchBookings();
-        // 5秒ごとに最新情報を自動取得
-        setInterval(fetchBookings, 5000);
+        setInterval(fetchBookings, 5000); // 5秒ごとの自動更新
     }
 
     function changeDate(d) {
@@ -103,14 +101,22 @@
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
+        
         const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
-        const isClosed = holidays.some(h => h.holiday_date === dateStr);
+        const isClosed = holidays.some(h => h.holiday_date === dateStr) || currentDate.getDay() === 1;
         
         const btn = document.getElementById('holiday-btn');
-        btn.innerText = isClosed ? "★ 臨時営業にする" : "〇 臨時休業にする";
+        btn.innerText = isClosed ? "★ 営業日にする" : "〇 臨時休業にする";
         btn.style.background = isClosed ? "#5cb85c" : "#d9534f";
         btn.style.color = "white";
 
+        if (isClosed) {
+            document.getElementById('booking-input-area').style.display = 'none';
+            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${currentDate.getDay() === 1 ? '定休日です' : '本日は臨時休業です'}</h4>`;
+            return;
+        }
+
+        document.getElementById('booking-input-area').style.display = 'block';
         const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
         
         let html = '<h4>本日の予約状況</h4>';
