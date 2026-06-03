@@ -51,7 +51,6 @@
         workingHours.push(`${h}:30`);
     }
 
-    // 時間選択肢の初期化
     const timeSelect = document.getElementById('new-time');
     workingHours.forEach(t => timeSelect.innerHTML += `<option value="${t}">${t}</option>`);
 
@@ -71,7 +70,6 @@
         fetchBookings();
     }
 
-    // 予約の登録（表示中の日付を自動で利用）
     async function addBooking() {
         const name = document.getElementById('new-name').value;
         const time = document.getElementById('new-time').value;
@@ -89,7 +87,6 @@
         fetchBookings();
     }
 
-    // 予約の削除
     async function deleteBooking(id) {
         if(!confirm('本当に削除しますか？')) return;
         await sbClient.from('bookings').delete().eq('id', id);
@@ -99,6 +96,13 @@
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
+
+        // 月曜日（1）は定休日にする判定
+        if (currentDate.getDay() === 1) { 
+            document.getElementById('booking-list').innerHTML = '<h4 style="text-align:center; padding:20px;">本日は定休日です</h4>';
+            return;
+        }
+
         const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
 
         const list = document.getElementById('booking-list');
