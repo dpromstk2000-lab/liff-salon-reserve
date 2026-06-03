@@ -36,12 +36,11 @@
         </div>
 
         <div class="input-group" id="booking-input-area">
-            <h4>電話予約の追加（この日に登録）</h4>
+            <h4>電話予約の追加</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
             <select id="new-time" style="width:100%; padding:8px; box-sizing:border-box;"></select>
             <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">登録する</button>
         </div>
-
         <div id="booking-list"></div>
     </div>
 </div>
@@ -49,16 +48,11 @@
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
-    let holidays = JSON.parse(localStorage.getItem('salon_holidays') || '{}');
+    let holidayList = []; // DBから取得した休業日を入れる
 
     const workingHours = [];
-    for(let h=10; h<19; h++) {
-        workingHours.push(`${h}:00`);
-        workingHours.push(`${h}:30`);
-    }
-
-    const timeSelect = document.getElementById('new-time');
-    workingHours.forEach(t => timeSelect.innerHTML += `<option value="${t}">${t}</option>`);
+    for(let h=10; h<19; h++) { workingHours.push(`${h}:00`); workingHours.push(`${h}:30`); }
+    workingHours.forEach(t => document.getElementById('new-time').innerHTML += `<option value="${t}">${t}</option>`);
 
     async function login() {
         const { error } = await sbClient.auth.signInWithPassword({
@@ -71,10 +65,14 @@
         fetchBookings();
     }
 
-    function toggleHoliday() {
+    // 臨時休業の切り替え（データベース連動）
+    async function toggleHoliday() {
         const dateStr = currentDate.toISOString().split('T')[0];
-        holidays[dateStr] = !holidays[dateStr];
-        localStorage.setItem('salon_holidays', JSON.stringify(holidays));
+        if (holidayList.includes(dateStr)) {
+            await sbClient.from('salon_settings').delete().eq('holiday_date', dateStr);
+        } else {
+            await sbClient.from('salon_settings').insert([{ holiday_date: dateStr }]);
+        }
         fetchBookings();
     }
 
@@ -83,38 +81,16 @@
         fetchBookings();
     }
 
-    async function addBooking() {
-        const name = document.getElementById('new-name').value;
-        const time = document.getElementById('new-time').value;
-        const dateStr = currentDate.toISOString().split('T')[0];
-        
-        if (!name) return alert('お客様名を入力してください');
-
-        const { error } = await sbClient.from('bookings').insert([{ 
-            customer_name: name, 
-            start_datetime: `${dateStr}T${time}:00` 
-        }]);
-        if (error) return alert('登録失敗: ' + error.message);
-        
-        document.getElementById('new-name').value = '';
-        fetchBookings();
-    }
-
-    async function deleteBooking(id) {
-        if(!confirm('本当に削除しますか？')) return;
-        await sbClient.from('bookings').delete().eq('id', id);
-        fetchBookings();
-    }
-
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
 
+        // DBから休業日を取得
+        const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
+        holidayList = holidays ? holidays.map(h => h.holiday_date) : [];
+
         const isMonday = currentDate.getDay() === 1;
-        const isTemporaryOpen = holidays[dateStr]; 
-        
-        // 休みかどうかの判定：月曜なら通常は休み、ただし臨時営業ボタンが押されていれば営業
-        const isClosed = (isMonday && !isTemporaryOpen) || (!isMonday && isTemporaryOpen);
+        const isClosed = holidayList.includes(dateStr); // 今回は「臨時休業テーブルにある＝休み」と定義
 
         const btn = document.getElementById('holiday-btn');
         btn.innerText = isClosed ? "★ この日を臨時営業にする" : "〇 この日を臨時休業にする";
@@ -123,7 +99,7 @@
 
         if (isClosed) {
             document.getElementById('booking-input-area').style.display = 'none';
-            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${isMonday ? '本日は定休日です' : '本日は臨時休業設定中です'}</h4>`;
+            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">本日は臨時休業設定中です</h4>`;
             return;
         }
 
@@ -134,19 +110,8 @@
         html += workingHours.map(time => {
             const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
             return `<div class="time-slot" style="color: ${reserved ? '#d9534f' : '#888'}">
-                <span>${time}</span>
-                <span>${reserved ? '✕ 予約済み' : '〇 空き'}</span>
-            </div>`;
+                <span>${time}</span><span>${reserved ? '✕ 予約済み' : '〇 空き'}</span></div>`;
         }).join('');
-
-        html += '<hr><h4>予約詳細リスト</h4>';
-        html += data.map(b => `
-            <div class="booking-item">
-                <span>${b.start_datetime.substring(11, 16)}</span>
-                <strong>${b.customer_name} 様</strong>
-                <button onclick="deleteBooking('${b.id}')" style="background:#ffcccc; border:none; padding:5px; border-radius:4px;">削除</button>
-            </div>`).join('');
-        
         document.getElementById('booking-list').innerHTML = html;
     }
 </script>
