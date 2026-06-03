@@ -2,28 +2,90 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>予約ページ</title>
+    <title>Salon Booking System</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; width:100%; }
+        li { list-style: none; border-bottom: 1px solid #eee; padding: 10px 0; }
+    </style>
 </head>
 <body>
-    <input type="text" id="customer_name" placeholder="お名前">
-    <input type="text" id="customer_memo" placeholder="備考">
-    <button onclick="saveBooking()">予約する</button>
+<div class="container">
+    <h2 id="user-display">読み込み中...</h2>
+    <label>お客様名</label>
+    <input type="text" id="customer_name" class="input-box">
+    <label>備考</label>
+    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
+    <label>予約日</label>
+    <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
+    <div id="time-slots"></div>
+    <input type="hidden" id="selected_datetime">
+    <button id="save_btn" onclick="saveBooking()">予約を確定</button>
+    <h3 style="margin-top:30px;">あなたの予約</h3>
+    <ul id="booking-list" style="padding:0;"></ul>
+</div>
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
+    let lineUserId = "";
+
+    async function initLiff() {
+        await liff.init({ liffId: "2010243135-H06VsAHm" });
+        if (liff.isLoggedIn()) {
+            const p = await liff.getProfile();
+            lineUserId = p.userId;
+            document.getElementById('user-display').innerText = p.displayName + " 様";
+            fetchBookings();
+        } else { liff.login(); }
+    }
+
+    async function fetchBookings() {
+        const { data } = await sbClient.from('bookings').select('*').eq('line_user_id', lineUserId).order('start_datetime');
+        const list = document.getElementById('booking-list');
+        list.innerHTML = '';
+        data?.forEach(item => {
+            list.innerHTML += `<li>${item.start_datetime.substring(0,16)} ${item.customer_name}<br><small>備考: ${item.memo || ''}</small></li>`;
+        });
+    }
 
     async function saveBooking() {
         const name = document.getElementById('customer_name').value;
+        const time = document.getElementById('selected_datetime').value;
         const memo = document.getElementById('customer_memo').value;
-        // 予約日や時間は省略していますが、元々のロジックにこの「memo」を足す形です
-        await sbClient.from('bookings').insert({ 
-            customer_name: name, 
-            memo: memo,
-            start_datetime: '2026-06-05T10:00:00' // テスト用
-        });
-        alert('予約完了！');
+        if (!name || !time) return alert('入力してください');
+        await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId, memo: memo });
+        alert('予約完了');
+        fetchBookings(); renderTimeSlots();
     }
+
+    async function renderTimeSlots() {
+        const dateStr = document.getElementById('select_date').value;
+        const container = document.getElementById('time-slots');
+        container.innerHTML = '';
+        const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
+        const isClosed = new Date(dateStr).getDay() === 1 || holidays.some(h => h.holiday_date === dateStr);
+        if (isClosed) return container.innerHTML = '<p>休業日です</p>';
+        
+        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        const booked = data.map(b => b.start_datetime.substring(11, 16));
+        
+        for (let h = 10; h < 19; h++) {
+            [0, 30].forEach(m => {
+                const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const btn = document.createElement('button');
+                btn.innerText = booked.includes(t) ? '✕' : t;
+                btn.disabled = booked.includes(t);
+                btn.onclick = () => { document.getElementById('selected_datetime').value = `${dateStr}T${t}:00`; };
+                container.appendChild(btn);
+            });
+        }
+    }
+    initLiff();
 </script>
 </body>
 </html>
