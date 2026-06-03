@@ -81,7 +81,6 @@
         const id = document.getElementById('edit_id').value;
         const name = document.getElementById('customer_name').value.trim();
         const time = document.getElementById('selected_datetime').value;
-        
         if (!name || !time) return alert('名前と時間を選択してください');
 
         if (id) {
@@ -114,18 +113,23 @@
         renderTimeSlots(); 
     }
 
-    // 時間枠の描画（月曜定休判定付き）
+    // ★重要：お客様用画面での休業日チェック
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
-        const selected = document.getElementById('selected_datetime').value;
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
         if (!dateStr) return;
 
-        // 【月曜定休の判定】
+        // DBから臨時休業日リストを取得
+        const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
+        const holidayList = holidays ? holidays.map(h => h.holiday_date) : [];
+
+        // 月曜定休 or 臨時休業日チェック
         const isMonday = new Date(dateStr).getDay() === 1;
-        if (isMonday) {
-            container.innerHTML = '<p style="color:red; font-size:0.9em; grid-column: span 3;">申し訳ありません。月曜日は定休日です。</p>';
+        const isClosed = isMonday || holidayList.includes(dateStr);
+
+        if (isClosed) {
+            container.innerHTML = '<p style="color:red; font-size:0.9em; grid-column: span 3;">申し訳ありません。本日は休業日です。</p>';
             return;
         }
         
@@ -137,9 +141,9 @@
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const val = `${dateStr}T${t}:00`;
                 const btn = document.createElement('button');
-                btn.innerText = booked.includes(t) ? '×' : t;
+                btn.innerText = booked.includes(t) ? '✕' : t;
                 btn.disabled = booked.includes(t);
-                if (selected === val) btn.classList.add('selected-slot');
+                if (document.getElementById('selected_datetime').value === val) btn.classList.add('selected-slot');
                 btn.onclick = function() {
                     document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
                     this.classList.add('selected-slot');
