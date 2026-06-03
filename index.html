@@ -10,32 +10,29 @@
         body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; width: 100%; }
+        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; width: 100%; margin-bottom: 5px; }
         .selected-slot { background: #d9a0a0 !important; }
-        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; }
+        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2 id="user-display">読み込み中...</h2>
+    <input type="hidden" id="edit_id">
     
     <label>お客様名</label>
-    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
-    
+    <input type="text" id="customer_name" class="input-box">
     <label>備考（任意）</label>
-    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
-    
+    <input type="text" id="customer_memo" class="input-box">
     <label>予約希望日</label>
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
     
-    <label>時間を選択</label>
     <div id="time-slots"></div>
     <input type="hidden" id="selected_datetime">
     
     <button id="save_btn" onclick="saveBooking()">予約を確定</button>
+    <button onclick="clearForm()" style="background:#aaa;">クリア</button>
     
     <h3 style="margin-top:30px;">あなたの予約一覧</h3>
     <ul id="booking-list" style="padding:0;"></ul>
@@ -50,7 +47,7 @@
         if (liff.isLoggedIn()) {
             const p = await liff.getProfile();
             lineUserId = p.userId;
-            document.getElementById('user-display').innerText = p.displayName + " 様の予約";
+            document.getElementById('user-display').innerText = p.displayName + " 様";
             fetchBookings();
         } else { liff.login(); }
     }
@@ -60,32 +57,63 @@
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         data?.forEach(item => {
-            list.innerHTML += `<li><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0, 16)}<br><small>備考: ${item.memo || ''}</small></li>`;
+            const li = document.createElement('li');
+            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.substring(0,16)}<br><small>備考: ${item.memo || ''}</small></div>
+                            <div>
+                                <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}', '${item.memo || ''}')" style="background:#888; width:auto;">編集</button>
+                                <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto;">削除</button>
+                            </div>`;
+            list.append(li);
         });
     }
 
     async function saveBooking() {
+        const id = document.getElementById('edit_id').value;
         const name = document.getElementById('customer_name').value.trim();
         const time = document.getElementById('selected_datetime').value;
         const memo = document.getElementById('customer_memo').value;
         if (!name || !time) return alert('名前と時間を選択してください');
 
-        await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId, memo: memo });
-        alert('予約完了しました！');
+        if (id) {
+            await sbClient.from('bookings').update({ customer_name: name, start_datetime: time, memo: memo }).eq('id', id);
+        } else {
+            await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId, memo: memo });
+        }
+        alert('保存しました');
+        clearForm(); fetchBookings();
+    }
+
+    function editBooking(id, name, datetime, memo) {
+        document.getElementById('edit_id').value = id;
+        document.getElementById('customer_name').value = name;
+        document.getElementById('customer_memo').value = memo;
+        document.getElementById('select_date').value = datetime.substring(0, 10);
+        document.getElementById('selected_datetime').value = datetime;
+        document.getElementById('save_btn').innerText = '変更を保存';
+        renderTimeSlots();
+    }
+
+    async function deleteBooking(id) {
+        if(!confirm('削除しますか？')) return;
+        await sbClient.from('bookings').delete().eq('id', id);
+        fetchBookings();
+    }
+
+    function clearForm() {
+        document.getElementById('edit_id').value = '';
         document.getElementById('customer_name').value = '';
         document.getElementById('customer_memo').value = '';
-        fetchBookings(); renderTimeSlots();
+        document.getElementById('save_btn').innerText = '予約を確定';
+        renderTimeSlots();
     }
 
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
-        if (!dateStr) return;
-
         const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
         const isClosed = new Date(dateStr).getDay() === 1 || holidays.some(h => h.holiday_date === dateStr);
-        if (isClosed) return container.innerHTML = '<p style="color:red;">本日は休業日です。</p>';
+        if (isClosed) return container.innerHTML = '<p style="color:red;">休業日です。</p>';
         
         const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
         const booked = data.map(b => b.start_datetime.substring(11, 16));
@@ -107,7 +135,6 @@
         }
     }
     initLiff();
-    document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
 </script>
 </body>
 </html>
