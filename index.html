@@ -42,11 +42,9 @@
 </div>
 
 <script>
-    // Supabaseの接続設定
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
     let lineUserId = "";
 
-    // 1. LIFF初期化とユーザーID取得
     async function initLiff() {
         await liff.init({ liffId: "2010243135-H06VsAHm" });
         if (liff.isLoggedIn()) {
@@ -59,7 +57,6 @@
         }
     }
 
-    // 2. 予約一覧の表示
     async function fetchBookings() {
         const { data } = await sbClient
             .from('bookings')
@@ -80,7 +77,6 @@
         });
     }
 
-    // 3. 予約登録・更新
     async function saveBooking() {
         const id = document.getElementById('edit_id').value;
         const name = document.getElementById('customer_name').value.trim();
@@ -97,7 +93,6 @@
         clearForm(); fetchBookings(); renderTimeSlots();
     }
 
-    // 4. 編集モードへの切り替え
     function editBooking(id, name, datetime) {
         document.getElementById('edit_id').value = id;
         document.getElementById('customer_name').value = name;
@@ -107,13 +102,11 @@
         renderTimeSlots();
     }
 
-    // 5. 削除処理
     async function deleteBooking(id) { 
         await sbClient.from('bookings').delete().eq('id', id); 
         fetchBookings(); renderTimeSlots(); 
     }
 
-    // 6. フォームクリア
     function clearForm() { 
         document.getElementById('edit_id').value = ''; 
         document.getElementById('save_btn').innerText = '予約を確定';
@@ -121,21 +114,28 @@
         renderTimeSlots(); 
     }
 
-    // 7. 時間枠の描画
+    // 時間枠の描画（月曜定休判定付き）
     async function renderTimeSlots() {
-        const date = document.getElementById('select_date').value;
+        const dateStr = document.getElementById('select_date').value;
         const selected = document.getElementById('selected_datetime').value;
-        if (!date) return;
-        
-        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${date}T00:00:00`).lte('start_datetime', `${date}T23:59:59`);
-        const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
+        if (!dateStr) return;
+
+        // 【月曜定休の判定】
+        const isMonday = new Date(dateStr).getDay() === 1;
+        if (isMonday) {
+            container.innerHTML = '<p style="color:red; font-size:0.9em; grid-column: span 3;">申し訳ありません。月曜日は定休日です。</p>';
+            return;
+        }
+        
+        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
         
         for (let h = 10; h < 19; h++) {
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const val = `${date}T${t}:00`;
+                const val = `${dateStr}T${t}:00`;
                 const btn = document.createElement('button');
                 btn.innerText = booked.includes(t) ? '×' : t;
                 btn.disabled = booked.includes(t);
@@ -150,7 +150,6 @@
         }
     }
 
-    // 初期化実行
     initLiff();
     document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
 </script>
