@@ -2,160 +2,28 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salon Booking System</title>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <title>予約ページ</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
-        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        .selected-slot { background: #d9a0a0 !important; border: 2px solid #a87070; }
-        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-    </style>
 </head>
 <body>
-
-<div class="container">
-    <h2 id="user-display">読み込み中...</h2>
-    <input type="hidden" id="edit_id">
-    
-    <label>お客様名（漢字）</label>
-    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
-    
-    <label>予約希望日</label>
-    <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
-    
-    <label>時間を選択</label>
-    <div id="time-slots"></div>
-    <input type="hidden" id="selected_datetime">
-    
-    <button id="save_btn" onclick="saveBooking()" style="width:100%; margin-bottom:10px;">予約を確定</button>
-    <button onclick="clearForm()" style="width:100%; background:#aaa;">クリア</button>
-    
-    <h3 style="margin-top:30px;">あなたの予約一覧</h3>
-    <ul id="booking-list" style="padding:0;"></ul>
-</div>
+    <input type="text" id="customer_name" placeholder="お名前">
+    <input type="text" id="customer_memo" placeholder="備考">
+    <button onclick="saveBooking()">予約する</button>
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
-    let lineUserId = "";
-
-    async function initLiff() {
-        await liff.init({ liffId: "2010243135-H06VsAHm" });
-        if (liff.isLoggedIn()) {
-            const profile = await liff.getProfile();
-            lineUserId = profile.userId;
-            document.getElementById('user-display').innerText = profile.displayName + " 様の予約";
-            fetchBookings();
-        } else {
-            liff.login();
-        }
-    }
-
-    async function fetchBookings() {
-        const { data } = await sbClient
-            .from('bookings')
-            .select('*')
-            .eq('line_user_id', lineUserId)
-            .order('start_datetime', { ascending: true });
-        
-        const list = document.getElementById('booking-list');
-        list.innerHTML = '';
-        data?.forEach(item => {
-            const li = document.createElement('li');
-            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0, 16)}</div>
-                            <div>
-                                <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}')" style="background:#888;">編集</button>
-                                <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0;">削除</button>
-                            </div>`;
-            list.append(li);
-        });
-    }
 
     async function saveBooking() {
-        const id = document.getElementById('edit_id').value;
-        const name = document.getElementById('customer_name').value.trim();
-        const time = document.getElementById('selected_datetime').value;
-        if (!name || !time) return alert('名前と時間を選択してください');
-
-        if (id) {
-            await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
-        } else {
-            await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId });
-        }
-        alert('保存しました');
-        clearForm(); fetchBookings(); renderTimeSlots();
+        const name = document.getElementById('customer_name').value;
+        const memo = document.getElementById('customer_memo').value;
+        // 予約日や時間は省略していますが、元々のロジックにこの「memo」を足す形です
+        await sbClient.from('bookings').insert({ 
+            customer_name: name, 
+            memo: memo,
+            start_datetime: '2026-06-05T10:00:00' // テスト用
+        });
+        alert('予約完了！');
     }
-
-    function editBooking(id, name, datetime) {
-        document.getElementById('edit_id').value = id;
-        document.getElementById('customer_name').value = name;
-        document.getElementById('select_date').value = datetime.substring(0, 10);
-        document.getElementById('selected_datetime').value = datetime;
-        document.getElementById('save_btn').innerText = '変更を保存';
-        renderTimeSlots();
-    }
-
-    async function deleteBooking(id) { 
-        await sbClient.from('bookings').delete().eq('id', id); 
-        fetchBookings(); renderTimeSlots(); 
-    }
-
-    function clearForm() { 
-        document.getElementById('edit_id').value = ''; 
-        document.getElementById('save_btn').innerText = '予約を確定';
-        document.getElementById('selected_datetime').value = '';
-        renderTimeSlots(); 
-    }
-
-    // ★重要：お客様用画面での休業日チェック
-    async function renderTimeSlots() {
-        const dateStr = document.getElementById('select_date').value;
-        const container = document.getElementById('time-slots');
-        container.innerHTML = '';
-        if (!dateStr) return;
-
-        // DBから臨時休業日リストを取得
-        const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
-        const holidayList = holidays ? holidays.map(h => h.holiday_date) : [];
-
-        // 月曜定休 or 臨時休業日チェック
-        const isMonday = new Date(dateStr).getDay() === 1;
-        const isClosed = isMonday || holidayList.includes(dateStr);
-
-        if (isClosed) {
-            container.innerHTML = '<p style="color:red; font-size:0.9em; grid-column: span 3;">申し訳ありません。本日は休業日です。</p>';
-            return;
-        }
-        
-        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
-        const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
-        
-        for (let h = 10; h < 19; h++) {
-            [0, 30].forEach(m => {
-                const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const val = `${dateStr}T${t}:00`;
-                const btn = document.createElement('button');
-                btn.innerText = booked.includes(t) ? '✕' : t;
-                btn.disabled = booked.includes(t);
-                if (document.getElementById('selected_datetime').value === val) btn.classList.add('selected-slot');
-                btn.onclick = function() {
-                    document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
-                    this.classList.add('selected-slot');
-                    document.getElementById('selected_datetime').value = val;
-                };
-                container.appendChild(btn);
-            });
-        }
-    }
-
-    initLiff();
-    document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
 </script>
 </body>
 </html>
