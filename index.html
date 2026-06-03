@@ -10,7 +10,6 @@
         body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
         #time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
         button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; }
         button:disabled { background: #ccc; cursor: not-allowed; }
@@ -22,17 +21,12 @@
 
 <div class="container">
     <h2 id="user-display">読み込み中...</h2>
-    <label>お客様名（漢字）</label>
-    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
-    
-    <label>予約希望日</label>
+    <input type="hidden" id="edit_id">
+    <input type="text" id="customer_name" class="input-box" placeholder="お客様名">
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
-    
-    <label>時間を選択</label>
     <div id="time-slots"></div>
     <input type="hidden" id="selected_datetime">
-    
-    <button onclick="saveBooking()" style="width:100%; margin-bottom:10px;">予約を確定</button>
+    <button id="save_btn" onclick="saveBooking()" style="width:100%; margin-bottom:10px;">予約を確定</button>
     
     <h3 style="margin-top:30px;">あなたの予約一覧</h3>
     <ul id="booking-list" style="padding:0;"></ul>
@@ -42,7 +36,6 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNia251Y2VtYXJjcGJzY2lyenl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTg5MDEsImV4cCI6MjA5NTc3NDkwMX0.Hu2KjL-fin4n-u2ENkmu9XNcs04uI304cZpycX9FHFE');
     let lineUserId = "";
 
-    // 1. LIFF初期化
     async function initLiff() {
         await liff.init({ liffId: "2010243135-H06VsAHm" });
         if (liff.isLoggedIn()) {
@@ -55,52 +48,55 @@
         }
     }
 
-    // 2. 自分の予約のみ表示
     async function fetchBookings() {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await sbClient
-            .from('bookings')
-            .select('*')
-            .eq('line_user_id', lineUserId)
-            .gte('start_datetime', `${today}T00:00:00`)
-            .order('start_datetime', { ascending: true });
-        
+        const { data } = await sbClient.from('bookings').select('*').eq('line_user_id', lineUserId).order('start_datetime', { ascending: true });
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         data?.forEach(item => {
             const li = document.createElement('li');
             li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0, 16)}</div>
-                            <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0;">削除</button>`;
+                            <div>
+                                <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}')" style="background:#888;">編集</button>
+                                <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0;">削除</button>
+                            </div>`;
             list.append(li);
         });
     }
 
-    // 3. 予約登録
     async function saveBooking() {
+        const id = document.getElementById('edit_id').value;
         const name = document.getElementById('customer_name').value.trim();
         const time = document.getElementById('selected_datetime').value;
-        if (!name) return alert('氏名を入力してください');
-        if (!time) return alert('時間を選択してください');
+        if (!name || !time) return alert('名前と時間を選択してください');
 
-        await sbClient.from('bookings').insert({ 
-            customer_name: name, 
-            start_datetime: time,
-            line_user_id: lineUserId 
-        });
-        alert('予約完了しました');
-        document.getElementById('customer_name').value = '';
-        fetchBookings(); renderTimeSlots();
+        if (id) {
+            await sbClient.from('bookings').update({ customer_name: name, start_datetime: time }).eq('id', id);
+        } else {
+            await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId });
+        }
+        alert('保存しました');
+        clearForm(); fetchBookings(); renderTimeSlots();
     }
 
-    // 4. 予約削除
-    async function deleteBooking(id) { 
-        await sbClient.from('bookings').delete().eq('id', id); 
-        fetchBookings(); renderTimeSlots(); 
+    function editBooking(id, name, datetime) {
+        document.getElementById('edit_id').value = id;
+        document.getElementById('customer_name').value = name;
+        document.getElementById('select_date').value = datetime.substring(0, 10);
+        document.getElementById('selected_datetime').value = datetime;
+        document.getElementById('save_btn').innerText = '変更を保存';
+        renderTimeSlots();
     }
 
-    // 5. 時間枠の描画
+    async function deleteBooking(id) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); renderTimeSlots(); }
+    function clearForm() { 
+        document.getElementById('edit_id').value = ''; 
+        document.getElementById('save_btn').innerText = '予約を確定';
+        renderTimeSlots(); 
+    }
+
     async function renderTimeSlots() {
         const date = document.getElementById('select_date').value;
+        const selected = document.getElementById('selected_datetime').value;
         if (!date) return;
         const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${date}T00:00:00`).lte('start_datetime', `${date}T23:59:59`);
         const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
@@ -109,20 +105,21 @@
         for (let h = 10; h < 19; h++) {
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const val = `${date}T${t}:00`;
                 const btn = document.createElement('button');
                 btn.innerText = booked.includes(t) ? '×' : t;
                 btn.disabled = booked.includes(t);
+                if (selected === val) btn.classList.add('selected-slot');
                 btn.onclick = function() {
                     document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
                     this.classList.add('selected-slot');
-                    document.getElementById('selected_datetime').value = `${date}T${t}:00`;
+                    document.getElementById('selected_datetime').value = val;
                 };
                 container.appendChild(btn);
             });
         }
     }
 
-    // 初期化
     initLiff();
     document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
 </script>
