@@ -1,95 +1,25 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オーナー専用予約管理</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
-        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .time-slot { padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-size: 0.9em; }
-        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .input-group { background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        button { cursor: pointer; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div id="login-view">
-        <h3>管理者ログイン</h3>
-        <input type="email" id="email" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;" placeholder="メール">
-        <input type="password" id="password" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;" placeholder="パスワード">
-        <button onclick="login()" style="width:100%; padding:10px; background:#8e7f7f; color:white; border:none; border-radius:8px;">ログイン</button>
-    </div>
-
-    <div id="admin-view" style="display:none;">
-        <div class="date-nav">
-            <button onclick="changeDate(-1)">← 前日</button>
-            <h2 id="display-date"></h2>
-            <button onclick="changeDate(1)">翌日 →</button>
-        </div>
-
-        <div class="input-group">
-            <h4>電話予約の追加（表示中の日付に登録）</h4>
-            <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
-            <select id="new-time" style="width:100%; padding:8px; box-sizing:border-box;"></select>
-            <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">この日に登録する</button>
-        </div>
-
-        <div id="booking-list"></div>
-    </div>
+<div class="date-nav">
+    <button onclick="changeDate(-1)">← 前日</button>
+    <h2 id="display-date"></h2>
+    <button onclick="changeDate(1)">翌日 →</button>
 </div>
 
-<script>
-    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
-    let currentDate = new Date();
-    const workingHours = [];
-    for(let h=10; h<19; h++) {
-        workingHours.push(`${h}:00`);
-        workingHours.push(`${h}:30`);
-    }
+<div id="holiday-control" style="text-align:center; margin-bottom:15px;">
+    <button id="holiday-btn" onclick="toggleHoliday()" style="padding:10px 20px; border-radius:8px; border:none;"></button>
+</div>
 
-    const timeSelect = document.getElementById('new-time');
-    workingHours.forEach(t => timeSelect.innerHTML += `<option value="${t}">${t}</option>`);
+<div class="input-group" id="booking-input-area">
+    ```
 
-    async function login() {
-        const { error } = await sbClient.auth.signInWithPassword({
-            email: document.getElementById('email').value,
-            password: document.getElementById('password').value
-        });
-        if (error) return alert('ログイン失敗: ' + error.message);
-        document.getElementById('login-view').style.display = 'none';
-        document.getElementById('admin-view').style.display = 'block';
-        fetchBookings();
-    }
+### 追加するスクリプト（`<script>`内に追加してください）
 
-    async function changeDate(d) {
-        currentDate.setDate(currentDate.getDate() + d);
-        fetchBookings();
-    }
+```javascript
+    // 臨時休業の状態を保持する辞書
+    let holidays = {};
 
-    async function addBooking() {
-        const name = document.getElementById('new-name').value;
-        const time = document.getElementById('new-time').value;
+    function toggleHoliday() {
         const dateStr = currentDate.toISOString().split('T')[0];
-        
-        if (!name) return alert('お客様名を入力してください');
-
-        const { error } = await sbClient.from('bookings').insert([{ 
-            customer_name: name, 
-            start_datetime: `${dateStr}T${time}:00` 
-        }]);
-        if (error) return alert('登録失敗: ' + error.message);
-        
-        document.getElementById('new-name').value = '';
-        fetchBookings();
-    }
-
-    async function deleteBooking(id) {
-        if(!confirm('本当に削除しますか？')) return;
-        await sbClient.from('bookings').delete().eq('id', id);
+        holidays[dateStr] = !holidays[dateStr];
         fetchBookings();
     }
 
@@ -97,35 +27,20 @@
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
 
-        // 月曜日（1）は定休日にする判定
-        if (currentDate.getDay() === 1) { 
-            document.getElementById('booking-list').innerHTML = '<h4 style="text-align:center; padding:20px;">本日は定休日です</h4>';
+        // 月曜定休 or 臨時休業の判定
+        const isMonday = currentDate.getDay() === 1;
+        const isHoliday = holidays[dateStr];
+
+        const btn = document.getElementById('holiday-btn');
+        btn.innerText = isHoliday ? "営業を再開する" : "この日を臨時休業にする";
+        btn.style.background = isHoliday ? "#5cb85c" : "#d9534f";
+        btn.style.color = "white";
+
+        if (isMonday || isHoliday) {
+            document.getElementById('booking-input-area').style.display = 'none';
+            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${isMonday ? '本日は定休日です' : '本日は臨時休業です'}</h4>`;
             return;
         }
 
-        const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
-
-        const list = document.getElementById('booking-list');
-        
-        let html = '<h4>本日の空き状況</h4>';
-        html += workingHours.map(time => {
-            const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
-            return `<div class="time-slot" style="color: ${reserved ? '#d9534f' : '#888'}">
-                <span>${time}</span>
-                <span>${reserved ? '✕ 予約済み' : '〇 空き'}</span>
-            </div>`;
-        }).join('');
-
-        html += '<hr><h4>予約詳細リスト</h4>';
-        html += data.map(b => `
-            <div class="booking-item">
-                <span>${b.start_datetime.substring(11, 16)}</span>
-                <strong>${b.customer_name} 様</strong>
-                <button onclick="deleteBooking('${b.id}')" style="background:#ffcccc; border:none; padding:5px; border-radius:4px;">削除</button>
-            </div>`).join('');
-        
-        list.innerHTML = html;
-    }
-</script>
-</body>
-</html>
+        document.getElementById('booking-input-area').style.display = 'block';
+        // ...以下、通常の予約表示リストの処理
