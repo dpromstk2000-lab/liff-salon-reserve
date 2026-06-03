@@ -2,24 +2,24 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オーナー専用予約管理</title>
+    <title>予約管理システム（空き枠表示）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .booking-item { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        .input-box { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        .time-slot { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .reserved { color: #d9534f; font-weight: bold; }
+        .free { color: #888; }
     </style>
 </head>
 <body>
 <div class="container">
     <div id="login-view">
         <h3>管理者ログイン</h3>
-        <input type="email" id="email" class="input-box" placeholder="メールアドレス">
-        <input type="password" id="password" class="input-box" placeholder="パスワード">
-        <button onclick="login()" style="width:100%; padding:10px; background:#8e7f7f; color:white; border:none; border-radius:8px; cursor:pointer;">ログイン</button>
+        <input type="email" id="email" placeholder="メール" style="width:100%; padding:10px; margin-bottom:10px;">
+        <input type="password" id="password" placeholder="パスワード" style="width:100%; padding:10px; margin-bottom:10px;">
+        <button onclick="login()" style="width:100%; padding:10px; background:#8e7f7f; color:white; border:none; border-radius:8px;">ログイン</button>
     </div>
 
     <div id="admin-view" style="display:none;">
@@ -33,58 +33,40 @@
 </div>
 
 <script>
-    // Supabaseの設定
-    const sbClient = supabase.createClient(
-        'https://cbknucemarcpbscirzyv.supabase.co', 
-        'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
-    );
-
+    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
+    const workingHours = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
-    // ログイン処理
     async function login() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const { error } = await sbClient.auth.signInWithPassword({ email, password });
-        
-        if (error) return alert('ログイン失敗: ' + error.message);
-        
+        const { error } = await sbClient.auth.signInWithPassword({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+        });
+        if (error) return alert('失敗: ' + error.message);
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
         fetchBookings();
     }
 
-    // 日付切り替え処理
     async function changeDate(d) {
         currentDate.setDate(currentDate.getDate() + d);
         fetchBookings();
     }
 
-    // 予約データ取得処理
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
         
-        const { data, error } = await sbClient
-            .from('bookings')
-            .select('*')
-            .gte('start_datetime', `${dateStr}T00:00:00`)
-            .lte('start_datetime', `${dateStr}T23:59:59`)
-            .order('start_datetime', { ascending: true });
+        const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
 
         const list = document.getElementById('booking-list');
-        if (error) {
-            list.innerHTML = '<p>エラーが発生しました</p>';
-            return;
-        }
-        
-        list.innerHTML = data.length > 0 
-            ? data.map(b => `
-                <div class="booking-item">
-                    <strong>${b.start_datetime.substring(11, 16)}</strong>
-                    <span>${b.customer_name}</span>
-                </div>`).join('')
-            : '<p>本日の予約はありません</p>';
+        list.innerHTML = workingHours.map(time => {
+            const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
+            return `<div class="time-slot">
+                <span>${time}</span>
+                <span class="${reserved ? 'reserved' : 'free'}">${reserved ? reserved.customer_name : '---'}</span>
+            </div>`;
+        }).join('');
     }
 </script>
 </body>
