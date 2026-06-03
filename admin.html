@@ -31,7 +31,11 @@
             <button onclick="changeDate(1)">翌日 →</button>
         </div>
 
-        <div class="input-group">
+        <div id="holiday-control" style="text-align:center; margin-bottom:15px;">
+            <button id="holiday-btn" onclick="toggleHoliday()" style="padding:10px 20px; border-radius:8px; border:none; width:100%;"></button>
+        </div>
+
+        <div class="input-group" id="booking-input-area">
             <h4>電話予約の追加（表示中の日付に登録）</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
             <select id="new-time" style="width:100%; padding:8px; box-sizing:border-box;"></select>
@@ -45,6 +49,8 @@
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
+    let holidays = JSON.parse(localStorage.getItem('salon_holidays') || '{}');
+
     const workingHours = [];
     for(let h=10; h<19; h++) {
         workingHours.push(`${h}:00`);
@@ -62,6 +68,13 @@
         if (error) return alert('ログイン失敗: ' + error.message);
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
+        fetchBookings();
+    }
+
+    function toggleHoliday() {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        holidays[dateStr] = !holidays[dateStr];
+        localStorage.setItem('salon_holidays', JSON.stringify(holidays));
         fetchBookings();
     }
 
@@ -97,16 +110,23 @@
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
 
-        // 月曜日（1）は定休日にする判定
-        if (currentDate.getDay() === 1) { 
-            document.getElementById('booking-list').innerHTML = '<h4 style="text-align:center; padding:20px;">本日は定休日です</h4>';
+        const isMonday = currentDate.getDay() === 1;
+        const isHoliday = holidays[dateStr];
+
+        const btn = document.getElementById('holiday-btn');
+        btn.innerText = isHoliday ? "営業を再開する" : "この日を臨時休業にする";
+        btn.style.background = isHoliday ? "#5cb85c" : "#d9534f";
+        btn.style.color = "white";
+
+        if (isMonday || isHoliday) {
+            document.getElementById('booking-input-area').style.display = 'none';
+            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${isMonday ? '本日は定休日です' : '本日は臨時休業です'}</h4>`;
             return;
         }
 
+        document.getElementById('booking-input-area').style.display = 'block';
         const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
 
-        const list = document.getElementById('booking-list');
-        
         let html = '<h4>本日の空き状況</h4>';
         html += workingHours.map(time => {
             const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
@@ -124,7 +144,7 @@
                 <button onclick="deleteBooking('${b.id}')" style="background:#ffcccc; border:none; padding:5px; border-radius:4px;">削除</button>
             </div>`).join('');
         
-        list.innerHTML = html;
+        document.getElementById('booking-list').innerHTML = html;
     }
 </script>
 </body>
