@@ -7,6 +7,7 @@
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 5px; }
         .controls { display: flex; gap: 5px; margin-top: 5px; }
         button { cursor: pointer; padding: 5px 10px; border-radius: 4px; border: none; }
@@ -22,11 +23,14 @@
     </div>
 
     <div id="admin-view" style="display:none;">
-        <h2 id="display-date"></h2>
+        <div class="date-nav">
+            <button onclick="changeDate(-1)">← 前日</button>
+            <h2 id="display-date"></h2>
+            <button onclick="changeDate(1)">翌日 →</button>
+        </div>
         <div id="holiday-control" style="margin-bottom:15px;">
             <button id="holiday-btn" onclick="toggleHoliday()" style="width:100%;"></button>
         </div>
-        
         <div class="input-group" style="background:#f4f4f4; padding:10px; margin-bottom:10px;">
             <h4>電話予約の追加</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%;">
@@ -41,7 +45,6 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
 
-    // 予約枠の生成
     const select = document.getElementById('new-time');
     for(let h=10; h<19; h++) {
         [0, 30].forEach(m => {
@@ -58,6 +61,11 @@
         if (error) return alert('ログイン失敗');
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
+        fetchBookings();
+    }
+
+    function changeDate(d) {
+        currentDate.setDate(currentDate.getDate() + d);
         fetchBookings();
     }
 
@@ -92,16 +100,24 @@
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
+        const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
+        const isClosed = holidays.some(h => h.holiday_date === dateStr);
+        
+        const btn = document.getElementById('holiday-btn');
+        btn.innerText = isClosed ? "★ 臨時営業にする" : "〇 臨時休業にする";
+        btn.style.background = isClosed ? "#5cb85c" : "#d9534f";
+        btn.style.color = "white";
+
         const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
         
-        let html = '<h4>本日の予約</h4>';
+        let html = '<h4>本日の予約状況</h4>';
         for(let h=10; h<19; h++) {
             [0, 30].forEach(m => {
                 const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const b = data.find(item => item.start_datetime.substring(11, 16) === time);
                 html += `<div class="booking-item">
                     <span>${time} ${b ? ' - ' + b.customer_name : '〇 空き'}</span>
-                    ${b ? `<input type="text" value="${b.memo || ''}" onchange="updateMemo(${b.id}, this.value)" placeholder="メモ">
+                    ${b ? `<input type="text" value="${b.memo || ''}" onchange="updateMemo(${b.id}, this.value)" placeholder="メモを入力">
                            <div class="controls"><button onclick="deleteBooking(${b.id})" style="background:#d9534f; color:white;">削除</button></div>` : ''}
                 </div>`;
             });
