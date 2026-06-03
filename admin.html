@@ -32,14 +32,14 @@
         </div>
 
         <div id="holiday-control" style="text-align:center; margin-bottom:15px;">
-            <button id="holiday-btn" onclick="toggleHoliday()" style="padding:10px 20px; border-radius:8px; border:none; width:100%;"></button>
+            <button id="holiday-btn" onclick="toggleHoliday()" style="padding:10px 20px; border-radius:8px; border:none; width:100%; font-weight:bold;"></button>
         </div>
 
         <div class="input-group" id="booking-input-area">
-            <h4>電話予約の追加（表示中の日付に登録）</h4>
+            <h4>電話予約の追加（この日に登録）</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
             <select id="new-time" style="width:100%; padding:8px; box-sizing:border-box;"></select>
-            <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">この日に登録する</button>
+            <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">登録する</button>
         </div>
 
         <div id="booking-list"></div>
@@ -114,13 +114,14 @@
         const isHoliday = holidays[dateStr];
 
         const btn = document.getElementById('holiday-btn');
-        btn.innerText = isHoliday ? "営業を再開する" : "この日を臨時休業にする";
-        btn.style.background = isHoliday ? "#5cb85c" : "#d9534f";
+        // ここでボタンの表示を切り替え
+        btn.innerText = (isMonday || isHoliday) ? "★ この日を臨時営業にする" : "〇 この日を臨時休業にする";
+        btn.style.background = (isMonday || isHoliday) ? "#5cb85c" : "#d9534f";
         btn.style.color = "white";
 
         if (isMonday || isHoliday) {
             document.getElementById('booking-input-area').style.display = 'none';
-            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${isMonday ? '本日は定休日です' : '本日は臨時休業です'}</h4>`;
+            document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${isMonday ? '本日は定休日です' : '本日は臨時休業設定中です'}</h4>`;
             return;
         }
 
