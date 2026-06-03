@@ -111,15 +111,17 @@
         document.getElementById('display-date').innerText = dateStr;
 
         const isMonday = currentDate.getDay() === 1;
-        const isHoliday = holidays[dateStr];
+        const isTemporaryOpen = holidays[dateStr]; 
+        
+        // 休みかどうかの判定：月曜なら通常は休み、ただし臨時営業ボタンが押されていれば営業
+        const isClosed = (isMonday && !isTemporaryOpen) || (!isMonday && isTemporaryOpen);
 
         const btn = document.getElementById('holiday-btn');
-        // ここでボタンの表示を切り替え
-        btn.innerText = (isMonday || isHoliday) ? "★ この日を臨時営業にする" : "〇 この日を臨時休業にする";
-        btn.style.background = (isMonday || isHoliday) ? "#5cb85c" : "#d9534f";
+        btn.innerText = isClosed ? "★ この日を臨時営業にする" : "〇 この日を臨時休業にする";
+        btn.style.background = isClosed ? "#5cb85c" : "#d9534f";
         btn.style.color = "white";
 
-        if (isMonday || isHoliday) {
+        if (isClosed) {
             document.getElementById('booking-input-area').style.display = 'none';
             document.getElementById('booking-list').innerHTML = `<h4 style="text-align:center; padding:20px;">${isMonday ? '本日は定休日です' : '本日は臨時休業設定中です'}</h4>`;
             return;
