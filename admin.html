@@ -32,11 +32,10 @@
         </div>
 
         <div class="input-group">
-            <h4>電話予約の追加</h4>
+            <h4>電話予約の追加（表示中の日付に登録）</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
-            <input type="date" id="new-date" style="width:48%; padding:8px; box-sizing:border-box;">
-            <select id="new-time" style="width:48%; padding:8px; box-sizing:border-box;"></select>
-            <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">登録する</button>
+            <select id="new-time" style="width:100%; padding:8px; box-sizing:border-box;"></select>
+            <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">この日に登録する</button>
         </div>
 
         <div id="booking-list"></div>
@@ -52,7 +51,7 @@
         workingHours.push(`${h}:30`);
     }
 
-    // セレクトボックス初期化
+    // 時間選択肢の初期化
     const timeSelect = document.getElementById('new-time');
     workingHours.forEach(t => timeSelect.innerHTML += `<option value="${t}">${t}</option>`);
 
@@ -72,18 +71,25 @@
         fetchBookings();
     }
 
+    // 予約の登録（表示中の日付を自動で利用）
     async function addBooking() {
         const name = document.getElementById('new-name').value;
-        const date = document.getElementById('new-date').value;
         const time = document.getElementById('new-time').value;
-        if (!name || !date) return alert('名前と日付を入力してください');
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        if (!name) return alert('お客様名を入力してください');
 
-        const { error } = await sbClient.from('bookings').insert([{ customer_name: name, start_datetime: `${date}T${time}:00` }]);
+        const { error } = await sbClient.from('bookings').insert([{ 
+            customer_name: name, 
+            start_datetime: `${dateStr}T${time}:00` 
+        }]);
         if (error) return alert('登録失敗: ' + error.message);
+        
         document.getElementById('new-name').value = '';
         fetchBookings();
     }
 
+    // 予約の削除
     async function deleteBooking(id) {
         if(!confirm('本当に削除しますか？')) return;
         await sbClient.from('bookings').delete().eq('id', id);
@@ -96,6 +102,7 @@
         const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
 
         const list = document.getElementById('booking-list');
+        
         let html = '<h4>本日の空き状況</h4>';
         html += workingHours.map(time => {
             const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
@@ -112,6 +119,7 @@
                 <strong>${b.customer_name} 様</strong>
                 <button onclick="deleteBooking('${b.id}')" style="background:#ffcccc; border:none; padding:5px; border-radius:4px;">削除</button>
             </div>`).join('');
+        
         list.innerHTML = html;
     }
 </script>
