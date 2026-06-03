@@ -45,6 +45,7 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
 
+    // 予約枠の生成
     const select = document.getElementById('new-time');
     for(let h=10; h<19; h++) {
         [0, 30].forEach(m => {
@@ -62,6 +63,8 @@
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
         fetchBookings();
+        // 5秒ごとに最新情報を自動取得
+        setInterval(fetchBookings, 5000);
     }
 
     function changeDate(d) {
