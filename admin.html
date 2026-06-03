@@ -10,16 +10,17 @@
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .time-slot { padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-size: 0.9em; }
-        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .input-group { background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        button { cursor: pointer; }
     </style>
 </head>
 <body>
 <div class="container">
     <div id="login-view">
         <h3>管理者ログイン</h3>
-        <input type="email" id="email" style="width:100%; padding:10px; margin-bottom:10px;" placeholder="メール">
-        <input type="password" id="password" style="width:100%; padding:10px; margin-bottom:10px;" placeholder="パスワード">
+        <input type="email" id="email" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;" placeholder="メール">
+        <input type="password" id="password" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;" placeholder="パスワード">
         <button onclick="login()" style="width:100%; padding:10px; background:#8e7f7f; color:white; border:none; border-radius:8px;">ログイン</button>
     </div>
 
@@ -33,8 +34,9 @@
         <div class="input-group">
             <h4>電話予約の追加</h4>
             <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
-            <input type="datetime-local" id="new-datetime" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
-            <button onclick="addBooking()" style="width:100%; padding:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">登録する</button>
+            <input type="date" id="new-date" style="width:48%; padding:8px; box-sizing:border-box;">
+            <select id="new-time" style="width:48%; padding:8px; box-sizing:border-box;"></select>
+            <button onclick="addBooking()" style="width:100%; padding:10px; margin-top:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">登録する</button>
         </div>
 
         <div id="booking-list"></div>
@@ -44,12 +46,15 @@
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
-    
     const workingHours = [];
     for(let h=10; h<19; h++) {
         workingHours.push(`${h}:00`);
         workingHours.push(`${h}:30`);
     }
+
+    // セレクトボックス初期化
+    const timeSelect = document.getElementById('new-time');
+    workingHours.forEach(t => timeSelect.innerHTML += `<option value="${t}">${t}</option>`);
 
     async function login() {
         const { error } = await sbClient.auth.signInWithPassword({
@@ -67,28 +72,30 @@
         fetchBookings();
     }
 
-    // 予約の追加処理
     async function addBooking() {
         const name = document.getElementById('new-name').value;
-        const datetime = document.getElementById('new-datetime').value;
-        if (!name || !datetime) return alert('名前と日時を入力してください');
+        const date = document.getElementById('new-date').value;
+        const time = document.getElementById('new-time').value;
+        if (!name || !date) return alert('名前と日付を入力してください');
 
-        const { error } = await sbClient.from('bookings').insert([{ customer_name: name, start_datetime: datetime }]);
+        const { error } = await sbClient.from('bookings').insert([{ customer_name: name, start_datetime: `${date}T${time}:00` }]);
         if (error) return alert('登録失敗: ' + error.message);
-        
-        alert('予約を追加しました！');
         document.getElementById('new-name').value = '';
+        fetchBookings();
+    }
+
+    async function deleteBooking(id) {
+        if(!confirm('本当に削除しますか？')) return;
+        await sbClient.from('bookings').delete().eq('id', id);
         fetchBookings();
     }
 
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
-        
-        const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
 
         const list = document.getElementById('booking-list');
-        
         let html = '<h4>本日の空き状況</h4>';
         html += workingHours.map(time => {
             const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
@@ -103,8 +110,8 @@
             <div class="booking-item">
                 <span>${b.start_datetime.substring(11, 16)}</span>
                 <strong>${b.customer_name} 様</strong>
+                <button onclick="deleteBooking('${b.id}')" style="background:#ffcccc; border:none; padding:5px; border-radius:4px;">削除</button>
             </div>`).join('');
-        
         list.innerHTML = html;
     }
 </script>
