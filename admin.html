@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オーナー専用予約管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .booking-item { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .input-box { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="login-view">
+        <h3>管理者ログイン</h3>
+        <input type="email" id="email" class="input-box" placeholder="メールアドレス">
+        <input type="password" id="password" class="input-box" placeholder="パスワード">
+        <button onclick="login()" style="width:100%; padding:10px; background:#8e7f7f; color:white; border:none; border-radius:8px; cursor:pointer;">ログイン</button>
+    </div>
+
+    <div id="admin-view" style="display:none;">
+        <div class="date-nav">
+            <button onclick="changeDate(-1)">← 前日</button>
+            <h2 id="display-date"></h2>
+            <button onclick="changeDate(1)">翌日 →</button>
+        </div>
+        <div id="booking-list"></div>
+    </div>
+</div>
+
+<script>
+    // Supabaseの設定
+    const sbClient = supabase.createClient(
+        'https://cbknucemarcpbscirzyv.supabase.co', 
+        'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
+    );
+
+    let currentDate = new Date();
+
+    // ログイン処理
+    async function login() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await sbClient.auth.signInWithPassword({ email, password });
+        
+        if (error) return alert('ログイン失敗: ' + error.message);
+        
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('admin-view').style.display = 'block';
+        fetchBookings();
+    }
+
+    // 日付切り替え処理
+    async function changeDate(d) {
+        currentDate.setDate(currentDate.getDate() + d);
+        fetchBookings();
+    }
+
+    // 予約データ取得処理
+    async function fetchBookings() {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        document.getElementById('display-date').innerText = dateStr;
+        
+        const { data, error } = await sbClient
+            .from('bookings')
+            .select('*')
+            .gte('start_datetime', `${dateStr}T00:00:00`)
+            .lte('start_datetime', `${dateStr}T23:59:59`)
+            .order('start_datetime', { ascending: true });
+
+        const list = document.getElementById('booking-list');
+        if (error) {
+            list.innerHTML = '<p>エラーが発生しました</p>';
+            return;
+        }
+        
+        list.innerHTML = data.length > 0 
+            ? data.map(b => `
+                <div class="booking-item">
+                    <strong>${b.start_datetime.substring(11, 16)}</strong>
+                    <span>${b.customer_name}</span>
+                </div>`).join('')
+            : '<p>本日の予約はありません</p>';
+    }
+</script>
+</body>
+</html>
