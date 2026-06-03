@@ -21,14 +21,18 @@
 <body>
 
 <div class="container">
-    <h2 id="user-display">予約システム</h2>
-    <input type="text" id="customer_name" class="input-box" placeholder="お客様名（お子様名など）">
+    <h2 id="user-display">読み込み中...</h2>
+    <label>お客様名（漢字）</label>
+    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
+    
     <label>予約希望日</label>
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
+    
     <label>時間を選択</label>
     <div id="time-slots"></div>
     <input type="hidden" id="selected_datetime">
-    <button onclick="saveBooking()" style="width:100%;">予約を確定</button>
+    
+    <button onclick="saveBooking()" style="width:100%; margin-bottom:10px;">予約を確定</button>
     
     <h3 style="margin-top:30px;">あなたの予約一覧</h3>
     <ul id="booking-list" style="padding:0;"></ul>
@@ -51,12 +55,14 @@
         }
     }
 
-    // 2. 自分のLINE IDの予約のみ取得
+    // 2. 自分の予約のみ表示
     async function fetchBookings() {
+        const today = new Date().toISOString().split('T')[0];
         const { data } = await sbClient
             .from('bookings')
             .select('*')
-            .eq('line_user_id', lineUserId) // 自分のIDだけ絞る
+            .eq('line_user_id', lineUserId)
+            .gte('start_datetime', `${today}T00:00:00`)
             .order('start_datetime', { ascending: true });
         
         const list = document.getElementById('booking-list');
@@ -69,29 +75,30 @@
         });
     }
 
-    // 3. 予約時にLINE IDも保存
+    // 3. 予約登録
     async function saveBooking() {
         const name = document.getElementById('customer_name').value.trim();
         const time = document.getElementById('selected_datetime').value;
-        if (!name || name.length < 2) return alert('氏名を2文字以上で入力してください');
+        if (!name) return alert('氏名を入力してください');
         if (!time) return alert('時間を選択してください');
 
         await sbClient.from('bookings').insert({ 
             customer_name: name, 
             start_datetime: time,
-            line_user_id: lineUserId // LINE IDを自動保存
+            line_user_id: lineUserId 
         });
         alert('予約完了しました');
         document.getElementById('customer_name').value = '';
         fetchBookings(); renderTimeSlots();
     }
 
+    // 4. 予約削除
     async function deleteBooking(id) { 
         await sbClient.from('bookings').delete().eq('id', id); 
         fetchBookings(); renderTimeSlots(); 
     }
 
-    // 時間枠の描画（ここは全ユーザー共通の「×」判定が必要）
+    // 5. 時間枠の描画
     async function renderTimeSlots() {
         const date = document.getElementById('select_date').value;
         if (!date) return;
@@ -105,12 +112,17 @@
                 const btn = document.createElement('button');
                 btn.innerText = booked.includes(t) ? '×' : t;
                 btn.disabled = booked.includes(t);
-                btn.onclick = () => { document.getElementById('selected_datetime').value = `${date}T${t}:00`; };
+                btn.onclick = function() {
+                    document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
+                    this.classList.add('selected-slot');
+                    document.getElementById('selected_datetime').value = `${date}T${t}:00`;
+                };
                 container.appendChild(btn);
             });
         }
     }
 
+    // 初期化
     initLiff();
     document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
 </script>
