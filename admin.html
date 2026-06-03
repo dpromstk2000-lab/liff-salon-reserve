@@ -11,6 +11,7 @@
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .time-slot { padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-size: 0.9em; }
         .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .input-group { background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -28,6 +29,14 @@
             <h2 id="display-date"></h2>
             <button onclick="changeDate(1)">翌日 →</button>
         </div>
+
+        <div class="input-group">
+            <h4>電話予約の追加</h4>
+            <input type="text" id="new-name" placeholder="お客様名" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
+            <input type="datetime-local" id="new-datetime" style="width:100%; padding:8px; margin-bottom:5px; box-sizing:border-box;">
+            <button onclick="addBooking()" style="width:100%; padding:10px; background:#5cb85c; color:white; border:none; border-radius:5px;">登録する</button>
+        </div>
+
         <div id="booking-list"></div>
     </div>
 </div>
@@ -36,7 +45,6 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
     
-    // 30分刻みの時間枠を作成
     const workingHours = [];
     for(let h=10; h<19; h++) {
         workingHours.push(`${h}:00`);
@@ -59,6 +67,20 @@
         fetchBookings();
     }
 
+    // 予約の追加処理
+    async function addBooking() {
+        const name = document.getElementById('new-name').value;
+        const datetime = document.getElementById('new-datetime').value;
+        if (!name || !datetime) return alert('名前と日時を入力してください');
+
+        const { error } = await sbClient.from('bookings').insert([{ customer_name: name, start_datetime: datetime }]);
+        if (error) return alert('登録失敗: ' + error.message);
+        
+        alert('予約を追加しました！');
+        document.getElementById('new-name').value = '';
+        fetchBookings();
+    }
+
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
@@ -67,7 +89,6 @@
 
         const list = document.getElementById('booking-list');
         
-        // 1. サマリー表示
         let html = '<h4>本日の空き状況</h4>';
         html += workingHours.map(time => {
             const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
@@ -77,7 +98,6 @@
             </div>`;
         }).join('');
 
-        // 2. 詳細リスト表示
         html += '<hr><h4>予約詳細リスト</h4>';
         html += data.map(b => `
             <div class="booking-item">
