@@ -2,23 +2,23 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>予約管理システム（空き枠表示）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オーナー専用予約管理</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .time-slot { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        .reserved { color: #d9534f; font-weight: bold; }
-        .free { color: #888; }
+        .time-slot { padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-size: 0.9em; }
+        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
 <div class="container">
     <div id="login-view">
         <h3>管理者ログイン</h3>
-        <input type="email" id="email" placeholder="メール" style="width:100%; padding:10px; margin-bottom:10px;">
-        <input type="password" id="password" placeholder="パスワード" style="width:100%; padding:10px; margin-bottom:10px;">
+        <input type="email" id="email" style="width:100%; padding:10px; margin-bottom:10px;" placeholder="メール">
+        <input type="password" id="password" style="width:100%; padding:10px; margin-bottom:10px;" placeholder="パスワード">
         <button onclick="login()" style="width:100%; padding:10px; background:#8e7f7f; color:white; border:none; border-radius:8px;">ログイン</button>
     </div>
 
@@ -35,14 +35,20 @@
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
-    const workingHours = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+    
+    // 30分刻みの時間枠を作成
+    const workingHours = [];
+    for(let h=10; h<19; h++) {
+        workingHours.push(`${h}:00`);
+        workingHours.push(`${h}:30`);
+    }
 
     async function login() {
         const { error } = await sbClient.auth.signInWithPassword({
             email: document.getElementById('email').value,
             password: document.getElementById('password').value
         });
-        if (error) return alert('失敗: ' + error.message);
+        if (error) return alert('ログイン失敗: ' + error.message);
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
         fetchBookings();
@@ -60,13 +66,26 @@
         const { data } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
 
         const list = document.getElementById('booking-list');
-        list.innerHTML = workingHours.map(time => {
+        
+        // 1. サマリー表示
+        let html = '<h4>本日の空き状況</h4>';
+        html += workingHours.map(time => {
             const reserved = data.find(b => b.start_datetime.substring(11, 16) === time);
-            return `<div class="time-slot">
+            return `<div class="time-slot" style="color: ${reserved ? '#d9534f' : '#888'}">
                 <span>${time}</span>
-                <span class="${reserved ? 'reserved' : 'free'}">${reserved ? reserved.customer_name : '---'}</span>
+                <span>${reserved ? '✕ 予約済み' : '〇 空き'}</span>
             </div>`;
         }).join('');
+
+        // 2. 詳細リスト表示
+        html += '<hr><h4>予約詳細リスト</h4>';
+        html += data.map(b => `
+            <div class="booking-item">
+                <span>${b.start_datetime.substring(11, 16)}</span>
+                <strong>${b.customer_name} 様</strong>
+            </div>`).join('');
+        
+        list.innerHTML = html;
     }
 </script>
 </body>
