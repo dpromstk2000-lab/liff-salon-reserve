@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salon Booking System</title>
+    <title>予約ページ</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -23,6 +23,8 @@
     
     <label>お客様名</label>
     <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
+    <label>備考（任意）</label>
+    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
     <label>予約希望日</label>
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
     
@@ -65,9 +67,17 @@
 
     async function saveBooking() {
         const name = document.getElementById('customer_name').value.trim();
+        const memo = document.getElementById('customer_memo').value.trim();
         const time = document.getElementById('selected_datetime').value;
         if (!name || !time) return alert('名前と時間を選択してください');
-        const { error } = await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId });
+        
+        // メモを含めて保存
+        const { error } = await sbClient.from('bookings').insert({ 
+            customer_name: name, 
+            customer_memo: memo, 
+            start_datetime: time, 
+            line_user_id: lineUserId 
+        });
         if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); clearForm(); fetchBookings(); }
     }
 
@@ -79,6 +89,7 @@
 
     function clearForm() {
         document.getElementById('customer_name').value = '';
+        document.getElementById('customer_memo').value = '';
         document.getElementById('selected_datetime').value = '';
         renderTimeSlots();
     }
@@ -92,7 +103,7 @@
         const { data: setting } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const dayOfWeek = new Date(dateStr).getDay();
         
-        // 【修正点】複数定休日判定ロジック
+        // 複数定休日判定
         if (setting && setting.regular_holidays) {
             const holidays = setting.regular_holidays.split(',').map(d => d.trim());
             if (holidays.includes(dayOfWeek.toString())) {
