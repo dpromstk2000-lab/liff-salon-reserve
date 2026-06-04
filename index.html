@@ -13,7 +13,8 @@
         button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; width: 100%; margin-bottom: 5px; }
         #time-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         .selected-slot { background: #d9a0a0 !important; }
-        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+        .booking-item { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .memo-text { font-size: 0.85em; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; display: block; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -35,7 +36,7 @@
     <button onclick="clearForm()" style="background:#aaa;">クリア</button>
     
     <h3 style="margin-top:30px;">あなたの予約一覧</h3>
-    <ul id="booking-list" style="padding:0;"></ul>
+    <div id="booking-list"></div>
 </div>
 
 <script>
@@ -58,10 +59,16 @@
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         data?.forEach(item => {
-            const li = document.createElement('li');
-            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0,16)}</div>
-                            <div><button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto;">削除</button></div>`;
-            list.append(li);
+            const div = document.createElement('div');
+            div.className = 'booking-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${item.start_datetime.replace('T', ' ').substring(0,16)}</strong><br>
+                    ${item.customer_name}
+                    ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}
+                </div>
+                <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">削除</button>`;
+            list.append(div);
         });
     }
 
@@ -71,14 +78,12 @@
         const time = document.getElementById('selected_datetime').value;
         if (!name || !time) return alert('名前と時間を選択してください');
         
-        // ★修正箇所：DBの列名が 'memo' なので、ここも 'memo' に合わせました
         const { error } = await sbClient.from('bookings').insert({ 
             customer_name: name, 
             memo: memo, 
             start_datetime: time, 
             line_user_id: lineUserId 
         });
-        
         if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); clearForm(); fetchBookings(); }
     }
 
@@ -95,6 +100,7 @@
         renderTimeSlots();
     }
 
+    // renderTimeSlots 関数は変更なし
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const container = document.getElementById('time-slots');
@@ -104,7 +110,6 @@
         const { data: setting } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const dayOfWeek = new Date(dateStr).getDay();
         
-        // 複数定休日判定
         if (setting && setting.regular_holidays) {
             const holidays = setting.regular_holidays.split(',').map(d => d.trim());
             if (holidays.includes(dayOfWeek.toString())) {
