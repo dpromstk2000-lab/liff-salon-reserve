@@ -22,9 +22,9 @@
     <input type="hidden" id="edit_id">
     
     <label>お客様名</label>
-    <input type="text" id="customer_name" class="input-box">
+    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
     <label>備考（任意）</label>
-    <input type="text" id="customer_memo" class="input-box">
+    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
     <label>予約希望日</label>
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
     
@@ -44,6 +44,9 @@
 
     async function initLiff() {
         await liff.init({ liffId: "2010243135-H06VsAHm" });
+        // カレンダーの最小値を今日に設定
+        document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
+        
         if (liff.isLoggedIn()) {
             const p = await liff.getProfile();
             lineUserId = p.userId;
@@ -58,7 +61,7 @@
         list.innerHTML = '';
         data?.forEach(item => {
             const li = document.createElement('li');
-            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.substring(0,16)}<br><small>備考: ${item.memo || ''}</small></div>
+            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0,16)}<br><small>備考: ${item.memo || ''}</small></div>
                             <div>
                                 <button onclick="editBooking(${item.id}, '${item.customer_name}', '${item.start_datetime}', '${item.memo || ''}')" style="background:#888; width:auto;">編集</button>
                                 <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto;">削除</button>
@@ -104,6 +107,7 @@
         document.getElementById('customer_name').value = '';
         document.getElementById('customer_memo').value = '';
         document.getElementById('save_btn').innerText = '予約を確定';
+        document.getElementById('select_date').value = '';
         renderTimeSlots();
     }
 
@@ -111,6 +115,8 @@
         const dateStr = document.getElementById('select_date').value;
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
+        if (!dateStr) return;
+
         const { data: holidays } = await sbClient.from('salon_settings').select('holiday_date');
         const isClosed = new Date(dateStr).getDay() === 1 || holidays.some(h => h.holiday_date === dateStr);
         if (isClosed) return container.innerHTML = '<p style="color:red;">休業日です。</p>';
