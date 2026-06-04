@@ -71,13 +71,14 @@
         const time = document.getElementById('selected_datetime').value;
         if (!name || !time) return alert('名前と時間を選択してください');
         
-        // メモを含めて保存
+        // ★修正箇所：DBの列名が 'memo' なので、ここも 'memo' に合わせました
         const { error } = await sbClient.from('bookings').insert({ 
             customer_name: name, 
-            customer_memo: memo, 
+            memo: memo, 
             start_datetime: time, 
             line_user_id: lineUserId 
         });
+        
         if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); clearForm(); fetchBookings(); }
     }
 
