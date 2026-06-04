@@ -12,7 +12,7 @@
         .input-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-size: 0.9em; }
         input { width: 80px; padding: 5px; }
         button { cursor: pointer; padding: 8px; border-radius: 4px; border: none; color: white; width: 100%; }
-        #booking-list { max-height: 300px; overflow-y: auto; }
+        #booking-list { max-height: 250px; overflow-y: auto; margin-top:10px; }
         .booking-item { padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
@@ -53,6 +53,7 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
 
+    // ログイン処理
     async function login() {
         const { error } = await sbClient.auth.signInWithPassword({
             email: document.getElementById('email').value,
@@ -62,7 +63,7 @@
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
         loadSettings();
-        fetchBookings();
+        fetchBookings(); // ここで初回読み込み
     }
 
     async function loadSettings() {
@@ -88,22 +89,31 @@
         fetchBookings();
     }
 
+    // 予約データを取得して表示
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
-        const { data } = await sbClient.from('bookings').select('*')
+        
+        // start_datetime を使用して予約を取得
+        const { data, error } = await sbClient.from('bookings').select('*')
             .gte('start_datetime', `${dateStr}T00:00:00`)
             .lte('start_datetime', `${dateStr}T23:59:59`)
             .order('start_datetime');
+            
+        if (error) { console.error(error); return; }
         
         let html = '';
-        data?.forEach(b => {
-            html += `<div class="booking-item">
-                <span>${b.start_datetime.substring(11, 16)}：${b.customer_name}</span>
-                <button onclick="deleteBooking(${b.id})" style="background:#d9534f; width:50px; font-size:0.8em;">削除</button>
-            </div>`;
-        });
-        document.getElementById('booking-list').innerHTML = html || '<p style="font-size:0.9em; color:#888;">予約なし</p>';
+        if (data && data.length > 0) {
+            data.forEach(b => {
+                html += `<div class="booking-item">
+                    <span>${b.start_datetime.split('T')[1].substring(0, 5)}：${b.customer_name}</span>
+                    <button onclick="deleteBooking(${b.id})" style="background:#d9534f; width:50px; padding:4px; font-size:0.8em;">削除</button>
+                </div>`;
+            });
+        } else {
+            html = '<p style="font-size:0.9em; color:#888;">予約なし</p>';
+        }
+        document.getElementById('booking-list').innerHTML = html;
     }
 
     async function deleteBooking(id) {
