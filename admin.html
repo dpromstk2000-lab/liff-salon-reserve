@@ -7,11 +7,10 @@
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 5px; }
-        button { cursor: pointer; padding: 10px; border-radius: 4px; border: none; color: white; }
         .settings-box { background: #f8f8f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
-        input { padding: 5px; }
+        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        button { cursor: pointer; padding: 10px; border-radius: 4px; border: none; color: white; }
     </style>
 </head>
 <body>
@@ -26,8 +25,8 @@
     <div id="admin-view" style="display:none;">
         <div class="settings-box">
             <h4>⚙️ 店舗設定</h4>
-            時間: <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
-            定休(0-6): <input type="number" id="regular-holiday" style="width:30px;">
+            時間: <input type="time" id="open-time"> 〜 <input type="time" id="close-time"><br>
+            定休日(0:日-6:土, カンマ区切り): <input type="text" id="regular-holiday" placeholder="例: 1,2" style="width:100px;">
             <button onclick="saveSettings()" style="background:#5cb85c; margin-top:10px; width:100%;">設定を保存</button>
         </div>
 
@@ -36,8 +35,6 @@
             <h3 id="display-date"></h3>
             <button onclick="changeDate(1)" style="background:#888;">翌日 →</button>
         </div>
-        <button id="holiday-btn" onclick="toggleHoliday()" style="width:100%; margin-bottom:15px;"></button>
-        
         <div id="booking-list"></div>
     </div>
 </div>
@@ -54,11 +51,9 @@
         if (error) return alert('ログイン失敗');
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
-        loadSettings();
-        fetchBookings();
+        loadSettings(); fetchBookings();
     }
 
-    // 設定読み込み・保存
     async function loadSettings() {
         const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         if (data) {
@@ -74,28 +69,17 @@
             close_time: document.getElementById('close-time').value,
             regular_holidays: document.getElementById('regular-holiday').value
         }).eq('id', 1);
-        alert('設定を保存しました。画面を更新してください');
+        alert('保存しました');
     }
 
-    // 予約取得・表示（以前のUI）
-    function changeDate(d) {
-        currentDate.setDate(currentDate.getDate() + d);
-        fetchBookings();
-    }
+    function changeDate(d) { currentDate.setDate(currentDate.getDate() + d); fetchBookings(); }
 
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
-        
         const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
-
-        // 定休日判定
-        const isClosed = (currentDate.getDay().toString() === set.regular_holidays);
-        const btn = document.getElementById('holiday-btn');
-        btn.innerText = isClosed ? "★ 営業日に変更" : "〇 臨時休業にする";
-        btn.style.background = isClosed ? "#5cb85c" : "#d9534f";
-
+        
         let html = '';
         const startH = parseInt(set.open_time.split(':')[0]);
         const endH = parseInt(set.close_time.split(':')[0]);
@@ -113,17 +97,7 @@
         document.getElementById('booking-list').innerHTML = html;
     }
 
-    async function deleteBooking(id) {
-        if(confirm('削除しますか？')) {
-            await sbClient.from('bookings').delete().eq('id', id);
-            fetchBookings();
-        }
-    }
-    
-    async function toggleHoliday() {
-        // 臨時休業の切り替え処理は以前のテーブル構造に合わせて実行
-        alert('設定から定休日を変更してください');
-    }
+    async function deleteBooking(id) { if(confirm('削除しますか？')) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); } }
 </script>
 </body>
 </html>
