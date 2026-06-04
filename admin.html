@@ -10,7 +10,7 @@
         .settings-box { background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 20px; }
         .booking-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .time-label { font-weight: bold; width: 60px; }
-        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        input, select { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
         button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; color: white; background: #8e7f7f; }
     </style>
 </head>
@@ -25,10 +25,10 @@
     
     <div id="admin-view" style="display:none;">
         <div class="settings-box">
-            <h4>⚙️ 店舗設定</h4>
-            <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
-            <input type="text" id="regular-holiday" placeholder="定休日(0:日-6:土, カンマ区切り)">
-            <button onclick="saveSettings()" style="background:#5cb85c; width:100%;">設定を保存</button>
+            <h4>👥 スタッフ管理</h4>
+            <div id="staff-list-grid" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
+            <input type="text" id="new-staff-name" placeholder="新しいスタッフ名">
+            <button onclick="addStaff()" style="background:#5cb85c; width:100%;">スタッフを追加</button>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -49,38 +49,41 @@
         if (error) return alert('ログイン失敗');
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
-        loadSettings(); fetchBookings();
+        fetchStaffs(); fetchBookings();
     }
 
-    async function loadSettings() {
-        const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
-        if (data) {
-            document.getElementById('open-time').value = data.open_time;
-            document.getElementById('close-time').value = data.close_time;
-            document.getElementById('regular-holiday').value = data.regular_holidays;
-        }
+    async function addStaff() {
+        const name = document.getElementById('new-staff-name').value;
+        if (!name) return;
+        await sbClient.from('staffs').insert({ name: name });
+        document.getElementById('new-staff-name').value = '';
+        fetchStaffs();
     }
 
-    async function saveSettings() {
-        await sbClient.from('salon_settings').update({
-            open_time: document.getElementById('open-time').value,
-            close_time: document.getElementById('close-time').value,
-            regular_holidays: document.getElementById('regular-holiday').value
-        }).eq('id', 1);
-        alert('保存しました');
+    async function fetchStaffs() {
+        const { data } = await sbClient.from('staffs').select('*');
+        window.currentStaffs = data || []; // グローバル変数に保存
+        const list = document.getElementById('staff-list-grid');
+        list.innerHTML = '';
+        data?.forEach(s => {
+            list.innerHTML += `<div style="background:#eee; padding:5px; border-radius:4px;">${s.name}</div>`;
+        });
     }
 
-    // 枠をクリックした時に呼び出される予約登録
     async function addBooking(time) {
         const name = prompt("お客様名を入力してください");
         if (!name) return;
         const memo = prompt("メモを入力（任意）");
-        const dateStr = currentDate.toISOString().split('T')[0];
         
+        let staffHtml = window.currentStaffs.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        const staff = prompt("担当スタッフを選択してください\n" + window.currentStaffs.map(s => s.name).join(', '), window.currentStaffs[0]?.name || "");
+        
+        const dateStr = currentDate.toISOString().split('T')[0];
         await sbClient.from('bookings').insert({ 
             customer_name: name, 
             memo: memo, 
-            start_datetime: `${dateStr}T${time}:00` 
+            start_datetime: `${dateStr}T${time}:00`,
+            staff_name: staff 
         });
         fetchBookings();
     }
@@ -91,21 +94,18 @@
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
         
-        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
         
         let html = '';
-        const startH = parseInt(set.open_time.split(':')[0]);
-        const endH = parseInt(set.close_time.split(':')[0]);
-
-        for(let h=startH; h<endH; h++) {
+        // 10時〜19時まで表示（設定読み込みロジックは簡略化しています）
+        for(let h=10; h<19; h++) {
             [0, 30].forEach(m => {
                 const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const b = bookings?.find(item => item.start_datetime.substring(11, 16) === timeStr);
                 
                 if (b) {
                     html += `<div class="booking-item"><span class="time-label">${timeStr}</span> 
-                            <span>${b.customer_name} ${b.memo ? '('+b.memo+')' : ''}</span>
+                            <span>${b.customer_name} [${b.staff_name || '未指定'}] ${b.memo ? '('+b.memo+')' : ''}</span>
                             <button onclick="deleteBooking(${b.id})" style="background:#d9534f;">削除</button></div>`;
                 } else {
                     html += `<div class="booking-item"><span class="time-label">${timeStr}</span> 
