@@ -1,43 +1,74 @@
-// index.html の <script> 内の該当関数を以下に差し替えてください
-async function renderTimeSlots() {
-    const dateStr = document.getElementById('select_date').value;
-    const container = document.getElementById('time-slots');
-    container.innerHTML = '';
-    if (!dateStr) return;
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>予約画面</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .container { max-width: 400px; margin: 0 auto; }
+        #time-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        button { padding: 10px; cursor: pointer; }
+        .selected-slot { background: #5cb85c; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>予約日時を選択</h2>
+        <input type="date" id="select_date" onchange="renderTimeSlots()">
+        <div id="time-slots"></div>
+        <input type="hidden" id="selected_datetime">
+    </div>
 
-    // 設定と予約状況を一括で取得
-    const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
-    const { data: bookings } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
-    const booked = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
+<script>
+    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
 
-    // 定休日チェック
-    if (set && set.regular_holidays) {
-        const dayOfWeek = new Date(dateStr).getDay();
-        const holidayArray = set.regular_holidays.split(',').map(d => d.trim());
-        if (holidayArray.includes(dayOfWeek.toString())) {
-            return container.innerHTML = '<p style="color:red; text-align:center;">本日は定休日です。</p>';
+    async function renderTimeSlots() {
+        const dateStr = document.getElementById('select_date').value;
+        const container = document.getElementById('time-slots');
+        container.innerHTML = '読み込み中...';
+        if (!dateStr) return container.innerHTML = '';
+
+        // 1. 設定と予約情報を取得
+        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        const { data: bookings } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        
+        const booked = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
+
+        // 2. 定休日チェック
+        if (set && set.regular_holidays) {
+            const dayOfWeek = new Date(dateStr).getDay();
+            const holidayArray = set.regular_holidays.split(',').map(d => d.trim());
+            if (holidayArray.includes(dayOfWeek.toString())) {
+                return container.innerHTML = '<p style="color:red; text-align:center;">本日は定休日です。</p>';
+            }
+        }
+
+        // 3. 時間枠の描画
+        container.innerHTML = '';
+        const startH = set?.open_time ? parseInt(set.open_time.split(':')[0]) : 10;
+        const endH = set?.close_time ? parseInt(set.close_time.split(':')[0]) : 19;
+
+        for (let h = startH; h < endH; h++) {
+            [0, 30].forEach(m => {
+                const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const isBooked = booked.includes(t);
+                const btn = document.createElement('button');
+                btn.innerText = isBooked ? '✕' : t;
+                btn.disabled = isBooked;
+                if (isBooked) btn.style.background = '#eee';
+                btn.onclick = () => {
+                    document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
+                    btn.classList.add('selected-slot');
+                    document.getElementById('selected_datetime').value = `${dateStr}T${t}:00`;
+                };
+                container.appendChild(btn);
+            });
         }
     }
-
-    const startH = set?.open_time ? parseInt(set.open_time.split(':')[0]) : 10;
-    const endH = set?.close_time ? parseInt(set.close_time.split(':')[0]) : 19;
-
-    for (let h = startH; h < endH; h++) {
-        [0, 30].forEach(m => {
-            const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-            const isBooked = booked.includes(t);
-            const btn = document.createElement('button');
-            btn.innerText = isBooked ? '✕' : t;
-            btn.disabled = isBooked;
-            if (isBooked) btn.style.background = '#eee';
-            btn.onclick = () => {
-                document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
-                btn.classList.add('selected-slot');
-                document.getElementById('selected_datetime').value = `${dateStr}T${t}:00`;
-            };
-            container.appendChild(btn);
-        });
-    }
-}
-// 自動更新
-setInterval(renderTimeSlots, 5000);
+    // 5秒ごとに自動更新
+    setInterval(renderTimeSlots, 5000);
+</script>
+</body>
+</html>
