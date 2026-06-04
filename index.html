@@ -24,16 +24,23 @@
     
     <label>お客様名（フルネーム）</label>
     <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
-    <label>備考（任意）</label>
-    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
+    
+    <label>担当スタッフを選択</label>
+    <select id="select_staff" class="input-box" onchange="renderTimeSlots()">
+        <option value="お任せ">お任せ（指定なし）</option>
+    </select>
+
     <label>予約希望日</label>
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
+    
+    <label>備考（任意）</label>
+    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
     
     <div id="time-slots"></div>
     <input type="hidden" id="selected_datetime">
     
     <button id="save_btn" onclick="saveBooking()" style="margin-top:20px;">予約を確定</button>
-    <button onclick="clearForm()" style="background:#aaa;">クリア</button>
+    <button onclick="location.reload()" style="background:#aaa;">クリア</button>
     
     <h3 style="margin-top:30px;">あなたの予約一覧</h3>
     <div id="booking-list"></div>
@@ -51,7 +58,31 @@
             lineUserId = p.userId;
             document.getElementById('user-display').innerText = p.displayName + " 様";
             fetchBookings();
+            fetchStaffs();
         } else { liff.login(); }
+    }
+
+    async function fetchStaffs() {
+        const { data } = await sbClient.from('staffs').select('*');
+        const select = document.getElementById('select_staff');
+        data?.forEach(s => {
+            select.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+        });
+    }
+
+    async function saveBooking() {
+        const name = document.getElementById('customer_name').value.trim();
+        const time = document.getElementById('selected_datetime').value;
+        const staff = document.getElementById('select_staff').value;
+        
+        if (!name.includes(' ') && !name.includes('　')) return alert('フルネーム（苗字と名前の間にスペース）で入力してください。');
+        if (!time) return alert('時間を選択してください');
+        
+        const { error } = await sbClient.from('bookings').insert({ 
+            customer_name: name, memo: document.getElementById('customer_memo').value.trim(), 
+            start_datetime: time, staff_name: staff, line_user_id: lineUserId 
+        });
+        if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); location.reload(); }
     }
 
     async function fetchBookings() {
@@ -59,81 +90,41 @@
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
         const now = new Date();
-
         data?.forEach(item => {
             const bookingDate = new Date(item.start_datetime);
-            const diffTime = bookingDate - now;
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
-            
-            // 【機能追加】24時間前（1日）を切っていたらキャンセルボタンを隠す
-            const canCancel = diffDays > 1;
-
+            const canCancel = (bookingDate - now) / (1000 * 60 * 60 * 24) > 1;
             const div = document.createElement('div');
             div.className = 'booking-item';
-            div.innerHTML = `
-                <div>
-                    <strong>${item.start_datetime.replace('T', ' ').substring(0,16)}</strong><br>
-                    ${item.customer_name}
-                    ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}
-                </div>
-                ${canCancel ? `<button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">削除</button>` : '<p style="color:red; font-size:0.8em;">※前日以降の変更は電話へ</p>'}`;
+            div.innerHTML = `<div><strong>${item.start_datetime.replace('T', ' ').substring(0,16)}</strong><br>
+                            ${item.customer_name} [担当: ${item.staff_name}]
+                            ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}</div>
+                            ${canCancel ? `<button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">削除</button>` : '<p style="color:red; font-size:0.8em;">※前日以降の変更は電話へ</p>'}`;
             list.append(div);
         });
     }
 
-    async function saveBooking() {
-        const name = document.getElementById('customer_name').value.trim();
-        const memo = document.getElementById('customer_memo').value.trim();
-        const time = document.getElementById('selected_datetime').value;
-        
-        // 【機能追加】フルネーム必須チェック
-        if (!name.includes(' ') && !name.includes('　')) {
-            return alert('お名前は「苗字」と「お名前」をスペースで区切ってフルネームで入力してください。');
-        }
-        if (!name || !time) return alert('名前と時間を選択してください');
-        
-        const { error } = await sbClient.from('bookings').insert({ 
-            customer_name: name, 
-            memo: memo, 
-            start_datetime: time, 
-            line_user_id: lineUserId 
-        });
-        if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); clearForm(); fetchBookings(); }
-    }
-
-    async function deleteBooking(id) {
-        if(!confirm('削除しますか？')) return;
-        await sbClient.from('bookings').delete().eq('id', id);
-        fetchBookings();
-    }
-
-    function clearForm() {
-        document.getElementById('customer_name').value = '';
-        document.getElementById('customer_memo').value = '';
-        document.getElementById('selected_datetime').value = '';
-        renderTimeSlots();
-    }
+    async function deleteBooking(id) { if(!confirm('削除しますか？')) return; await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); }
 
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
+        const staffName = document.getElementById('select_staff').value;
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
         if (!dateStr) return;
 
         const { data: setting } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        // 定休日ロジック
         const dayOfWeek = new Date(dateStr).getDay();
-        
-        if (setting && setting.regular_holidays) {
-            const holidays = setting.regular_holidays.split(',').map(d => d.trim());
-            if (holidays.includes(dayOfWeek.toString())) {
-                return container.innerHTML = '<p style="color:red; text-align:center;">本日は定休日です。</p>';
-            }
-        }
+        if (setting.regular_holidays?.split(',').includes(dayOfWeek.toString())) return container.innerHTML = '<p>定休日です</p>';
 
         const startH = parseInt(setting.open_time.split(':')[0]);
         const endH = parseInt(setting.close_time.split(':')[0]);
 
-        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        // クエリ設定（「お任せ」ならスタッフ指定なし）
+        let query = sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        if (staffName !== 'お任せ') query = query.eq('staff_name', staffName);
+
+        const { data } = await query;
         const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
         
         for (let h = startH; h < endH; h++) {
