@@ -2,39 +2,44 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>スタッフ専用予約確認</title>
+    <title>スタッフ予約確認</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .booking-item { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .date-nav { display:flex; justify-content:space-between; align-items:center; margin: 20px 0; }
         select { width: 100%; padding: 10px; margin: 10px 0; }
+        button { padding: 6px 12px; border: none; border-radius: 4px; background: #8e7f7f; color: white; }
     </style>
 </head>
 <body>
 <div class="container">
     <h3>スタッフ予約確認</h3>
     <div id="content" style="display:none;">
-        <label>担当者を選択してください</label>
+        <label>担当者を選択</label>
         <select id="staff-selector" onchange="fetchStaffBookings()">
             <option value="">-- 名前を選択 --</option>
         </select>
+
+        <div class="date-nav">
+            <button onclick="changeDate(-1)">← 前日</button>
+            <h4 id="display-date"></h4>
+            <button onclick="changeDate(1)">翌日 →</button>
+        </div>
+        
         <div id="staff-booking-list"></div>
     </div>
 </div>
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
-
-    // ★ここにパスワードを設定してください（例: 2026）
     const STAFF_PASSWORD = "2026"; 
+    let currentDate = new Date();
 
     async function init() {
-        const pass = prompt("スタッフ用パスワードを入力してください");
-        if (pass !== STAFF_PASSWORD) {
-            alert("パスワードが違います");
-            return; // 何もしない（画面を表示しない）
-        }
+        const pass = prompt("パスワードを入力");
+        if (pass !== STAFF_PASSWORD) return alert("パスワードが違います");
         document.getElementById('content').style.display = 'block';
 
         const { data } = await sbClient.from('staffs').select('*');
@@ -42,6 +47,17 @@
         data?.forEach(s => {
             selector.innerHTML += `<option value="${s.name}">${s.name}</option>`;
         });
+        updateDateDisplay();
+    }
+
+    function changeDate(d) {
+        currentDate.setDate(currentDate.getDate() + d);
+        updateDateDisplay();
+        fetchStaffBookings();
+    }
+
+    function updateDateDisplay() {
+        document.getElementById('display-date').innerText = currentDate.toISOString().split('T')[0];
     }
 
     async function fetchStaffBookings() {
@@ -49,23 +65,25 @@
         const list = document.getElementById('staff-booking-list');
         if (!staffName) return list.innerHTML = '';
         
+        const dateStr = currentDate.toISOString().split('T')[0];
         list.innerHTML = '読み込み中...';
         
-        const today = new Date().toISOString().split('T')[0];
+        // その日の、そのスタッフの予約のみを取得
         const { data } = await sbClient.from('bookings')
             .select('*')
             .eq('staff_name', staffName)
-            .gte('start_datetime', `${today}T00:00:00`)
+            .gte('start_datetime', `${dateStr}T00:00:00`)
+            .lte('start_datetime', `${dateStr}T23:59:59`)
             .order('start_datetime');
 
         list.innerHTML = '';
-        if (!data || data.length === 0) return list.innerHTML = '<p>現在の予約はありません。</p>';
+        if (!data || data.length === 0) return list.innerHTML = '<p>この日の予約はありません。</p>';
 
         data.forEach(item => {
             const div = document.createElement('div');
             div.className = 'booking-item';
             div.innerHTML = `
-                <strong>${item.start_datetime.replace('T', ' ').substring(0,16)}</strong><br>
+                <strong>${item.start_datetime.substring(11, 16)}</strong><br>
                 お客様: ${item.customer_name}<br>
                 ${item.memo ? `<small style="color:#666;">メモ: ${item.memo}</small>` : ''}
             `;
