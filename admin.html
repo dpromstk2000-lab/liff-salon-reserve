@@ -2,44 +2,47 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>オーナー専用：店舗設定・予約管理</title>
+    <title>オーナー専用：管理画面</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
-        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .section { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-        input, select { width: 100%; padding: 8px; margin: 5px 0 15px; box-sizing: border-box; }
-        button { cursor: pointer; padding: 10px; border-radius: 4px; border: none; color: white; width: 100%; margin-top: 5px; }
-        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 5px; }
+        body { font-family: sans-serif; padding: 10px; background: #fcfbf9; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 20px; padding: 10px; border: 1px solid #eee; border-radius: 8px; }
+        h3 { margin-top: 0; font-size: 1.1em; color: #555; }
+        .input-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-size: 0.9em; }
+        input { width: 80px; padding: 5px; }
+        button { cursor: pointer; padding: 8px; border-radius: 4px; border: none; color: white; width: 100%; }
+        #booking-list { max-height: 300px; overflow-y: auto; }
+        .booking-item { padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
 <div class="container">
     <div id="login-view">
         <h3>管理者ログイン</h3>
-        <input type="email" id="email" placeholder="メール">
-        <input type="password" id="password" placeholder="パスワード">
-        <button onclick="login()" style="background:#8e7f7f;">ログイン</button>
+        <input type="email" id="email" placeholder="メール" style="width:100%;">
+        <input type="password" id="password" placeholder="パスワード" style="width:100%; margin-top:5px;">
+        <button onclick="login()" style="background:#8e7f7f; margin-top:10px;">ログイン</button>
     </div>
 
     <div id="admin-view" style="display:none;">
         <div class="section">
-            <h3>店舗設定</h3>
-            <label>営業開始時間</label>
-            <input type="time" id="open-time">
-            <label>営業終了時間</label>
-            <input type="time" id="close-time">
-            <label>定休日 (0:日, 1:月...6:土)</label>
-            <input type="number" id="regular-holiday" placeholder="例: 1">
+            <h3>⚙️ 店舗設定</h3>
+            <div class="input-row">
+                営業: <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
+            </div>
+            <div class="input-row">
+                定休日(0:日-6:土): <input type="number" id="regular-holiday" style="width:40px;">
+            </div>
             <button onclick="saveSettings()" style="background:#5cb85c;">設定を保存</button>
         </div>
         
         <div class="section">
-            <h3>予約管理</h3>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="changeDate(-1)" style="width:auto; background:#888;">←</button>
-                <h4 id="display-date"></h4>
-                <button onclick="changeDate(1)" style="width:auto; background:#888;">→</button>
+            <h3>📅 予約管理</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <button onclick="changeDate(-1)" style="width:40px; background:#888;">←</button>
+                <span id="display-date" style="font-weight:bold;"></span>
+                <button onclick="changeDate(1)" style="width:40px; background:#888;">→</button>
             </div>
             <div id="booking-list"></div>
         </div>
@@ -96,11 +99,11 @@
         let html = '';
         data?.forEach(b => {
             html += `<div class="booking-item">
-                <span>${b.start_datetime.substring(11, 16)} - ${b.customer_name}</span>
-                <button onclick="deleteBooking(${b.id})" style="background:#d9534f;">削除</button>
+                <span>${b.start_datetime.substring(11, 16)}：${b.customer_name}</span>
+                <button onclick="deleteBooking(${b.id})" style="background:#d9534f; width:50px; font-size:0.8em;">削除</button>
             </div>`;
         });
-        document.getElementById('booking-list').innerHTML = html || '<p>予約はありません</p>';
+        document.getElementById('booking-list').innerHTML = html || '<p style="font-size:0.9em; color:#888;">予約なし</p>';
     }
 
     async function deleteBooking(id) {
