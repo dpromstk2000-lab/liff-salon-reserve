@@ -98,10 +98,11 @@
     async function addBooking(time) {
         const name = prompt("お客様名");
         if (!name) return;
+        const memo = prompt("メモ");
         const staffNames = window.currentStaffs.map(s => s.name).join(', ');
         const staff = prompt("担当スタッフ名\n" + staffNames);
         const dateStr = currentDate.toISOString().split('T')[0];
-        await sbClient.from('bookings').insert({ customer_name: name, start_datetime: `${dateStr}T${time}:00`, staff_name: staff });
+        await sbClient.from('bookings').insert({ customer_name: name, memo: memo, start_datetime: `${dateStr}T${time}:00`, staff_name: staff });
         fetchBookings();
     }
 
@@ -124,7 +125,12 @@
                 
                 html += `<div class="booking-row"><span class="time-label">${t}</span><div style="flex-grow:1;">`;
                 if (timeBookings?.length > 0) {
-                    timeBookings.forEach(b => html += `<div>${b.customer_name} [${b.staff_name || '未指定'}] <button onclick="deleteBooking(${b.id})" style="background:#d9534f; font-size:10px;">削除</button></div>`);
+                    timeBookings.forEach(b => {
+                        const memoPart = b.memo ? `<br><small style="color:#666;">メモ: ${b.memo}</small>` : '';
+                        html += `<div>${b.customer_name} [${b.staff_name || '未指定'}] 
+                                <button onclick="deleteBooking(${b.id})" style="background:#d9534f; font-size:10px;">削除</button>
+                                ${memoPart}</div>`;
+                    });
                 } else { html += `<span style="color:#ccc;">〇 空き</span>`; }
                 html += `</div><button onclick="addBooking('${t}')" style="background:#5cb85c;">＋</button></div>`;
             });
