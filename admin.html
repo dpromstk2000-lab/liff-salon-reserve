@@ -8,10 +8,11 @@
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .settings-box { background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 20px; }
-        .booking-row { padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: flex-start; }
+        .booking-row { padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; }
         .time-label { font-weight: bold; width: 60px; flex-shrink: 0; }
-        input, select { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
         button { cursor: pointer; padding: 6px 10px; border-radius: 4px; border: none; color: white; background: #8e7f7f; }
+        button:disabled { background: #ccc !important; cursor: not-allowed; }
         .staff-tag { background:#e1f5fe; padding:4px 8px; border-radius:15px; border:1px solid #b3e5fc; display:flex; align-items:center; gap:5px; font-size:13px; margin-right:5px; }
     </style>
 </head>
@@ -99,10 +100,8 @@
         const name = prompt("お客様名");
         if (!name) return;
         const memo = prompt("メモ");
-
-        // スタッフの選択肢リストを作成
         const staffOptions = window.currentStaffs.map((s, index) => `${index + 1}: ${s.name}`).join('\n');
-        const staffIndex = prompt("担当スタッフの番号を入力してください:\n0: 指定なし(お任せ)\n" + staffOptions);
+        const staffIndex = prompt("担当スタッフ番号:\n0: 指定なし(お任せ)\n" + staffOptions);
         
         let selectedStaff = "お任せ";
         if (staffIndex !== null && staffIndex !== "0" && window.currentStaffs[parseInt(staffIndex) - 1]) {
@@ -111,10 +110,7 @@
         
         const dateStr = currentDate.toISOString().split('T')[0];
         await sbClient.from('bookings').insert({ 
-            customer_name: name, 
-            memo: memo, 
-            staff_name: selectedStaff, 
-            start_datetime: `${dateStr}T${time}:00` 
+            customer_name: name, memo: memo, staff_name: selectedStaff, start_datetime: `${dateStr}T${time}:00` 
         });
         fetchBookings();
     }
@@ -126,7 +122,9 @@
         document.getElementById('display-date').innerText = dateStr;
         const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
+        const { data: staffs } = await sbClient.from('staffs').select('*');
         
+        const staffCount = staffs ? staffs.length : 0;
         let html = '';
         const startH = parseInt(set.open_time.split(':')[0]);
         const endH = parseInt(set.close_time.split(':')[0]);
@@ -135,17 +133,21 @@
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const timeBookings = bookings?.filter(b => b.start_datetime.substring(11, 16) === t);
+                const bookedCount = timeBookings ? timeBookings.length : 0;
                 
                 html += `<div class="booking-row"><span class="time-label">${t}</span><div style="flex-grow:1;">`;
-                if (timeBookings?.length > 0) {
+                if (bookedCount > 0) {
                     timeBookings.forEach(b => {
-                        const memoPart = b.memo ? `<br><small style="color:#666;">メモ: ${b.memo}</small>` : '';
-                        html += `<div>${b.customer_name} [${b.staff_name || '未指定'}] 
-                                <button onclick="deleteBooking(${b.id})" style="background:#d9534f; font-size:10px;">削除</button>
-                                ${memoPart}</div>`;
+                        html += `<div>${b.customer_name} [${b.staff_name}] <button onclick="deleteBooking(${b.id})" style="background:#d9534f; font-size:10px;">削除</button></div>`;
                     });
                 } else { html += `<span style="color:#ccc;">〇 空き</span>`; }
-                html += `</div><button onclick="addBooking('${t}')" style="background:#5cb85c;">＋</button></div>`;
+                
+                html += `</div>`;
+                if (bookedCount >= staffCount && staffCount > 0) {
+                    html += `<button disabled>満席</button></div>`;
+                } else {
+                    html += `<button onclick="addBooking('${t}')" style="background:#5cb85c;">＋</button></div>`;
+                }
             });
         }
         document.getElementById('booking-list').innerHTML = html;
