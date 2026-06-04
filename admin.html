@@ -59,7 +59,7 @@
         loadSettings(); fetchStaffs(); fetchBookings();
     }
 
-    // --- 店舗設定・スタッフ管理ロジック ---
+    // 店舗設定
     async function loadSettings() {
         const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         if (data) {
@@ -78,11 +78,12 @@
         alert('設定を保存しました');
     }
 
+    // スタッフ管理
     async function fetchStaffs() {
         const { data } = await sbClient.from('staffs').select('*');
         window.currentStaffs = data || [];
         const list = document.getElementById('staff-list-grid');
-        list.innerHTML = window.currentStaffs.map(s => `<div style="background:#eee; padding:5px; border-radius:4px;">${s.name}</div>`).join('');
+        list.innerHTML = window.currentStaffs.map(s => `<div style="background:#e1f5fe; padding:5px 10px; border-radius:4px; border:1px solid #b3e5fc;">${s.name}</div>`).join('');
     }
 
     async function addStaff() {
@@ -93,7 +94,7 @@
         fetchStaffs();
     }
 
-    // --- 予約ロジック ---
+    // 予約ロジック
     async function addBooking(time) {
         const name = prompt("お客様名を入力してください");
         if (!name) return;
