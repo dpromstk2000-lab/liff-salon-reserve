@@ -7,35 +7,26 @@
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .settings-box, .manual-booking { background: #f8f8f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
         .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; color: white; background: #888; }
         input { padding: 8px; margin-bottom: 5px; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; color: white; background: #888; }
     </style>
 </head>
 <body>
 <div class="container">
     <div id="login-view">
         <h3>管理者ログイン</h3>
-        <input type="email" id="email" placeholder="メール" style="margin-bottom:10px;">
-        <input type="password" id="password" placeholder="パスワード" style="margin-bottom:10px;">
+        <input type="email" id="email" placeholder="メール">
+        <input type="password" id="password" placeholder="パスワード">
         <button onclick="login()" style="width:100%; background:#8e7f7f;">ログイン</button>
     </div>
     <div id="admin-view" style="display:none;">
-        <div class="settings-box">
-            <h4>⚙️ 店舗設定</h4>
-            <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
-            <input type="text" id="regular-holiday" placeholder="定休日(0:日-6:土, カンマ区切り)">
-            <button onclick="saveSettings()" style="background:#5cb85c; width:100%;">設定を保存</button>
-        </div>
-        <div class="manual-booking">
-            <h4>📞 電話予約追加</h4>
-            <input type="text" id="manual-name" placeholder="お客様名">
-            <input type="text" id="manual-memo" placeholder="備考・メモ">
-            <input type="datetime-local" id="manual-time">
-            <button onclick="addManualBooking()" style="background:#428bca; width:100%;">予約を追加</button>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <h4>⚙️ 電話予約追加（表示中の日付に予約）</h4>
+        <input type="text" id="manual-name" placeholder="お客様名">
+        <input type="text" id="manual-memo" placeholder="メモ">
+        <input type="time" id="manual-time"> <button onclick="addManualBooking()" style="background:#428bca; width:100%;">この日付で予約追加</button>
+        
+        <div style="display:flex; justify-content:space-between; margin-top:20px;">
             <button onclick="changeDate(-1)">← 前日</button>
             <h3 id="display-date"></h3>
             <button onclick="changeDate(1)">翌日 →</button>
@@ -53,34 +44,18 @@
         if (error) return alert('ログイン失敗');
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('admin-view').style.display = 'block';
-        loadSettings(); fetchBookings();
-    }
-
-    async function loadSettings() {
-        const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
-        if (data) {
-            document.getElementById('open-time').value = data.open_time;
-            document.getElementById('close-time').value = data.close_time;
-            document.getElementById('regular-holiday').value = data.regular_holidays;
-        }
-    }
-
-    async function saveSettings() {
-        await sbClient.from('salon_settings').update({
-            open_time: document.getElementById('open-time').value,
-            close_time: document.getElementById('close-time').value,
-            regular_holidays: document.getElementById('regular-holiday').value
-        }).eq('id', 1);
-        alert('設定保存完了'); fetchBookings();
+        fetchBookings();
     }
 
     async function addManualBooking() {
         const name = document.getElementById('manual-name').value;
         const memo = document.getElementById('manual-memo').value;
         const time = document.getElementById('manual-time').value;
-        if (!name || !time) return alert('名前と日時を入力してください');
-        // メモを含めて保存（customer_memo カラムがある前提）
-        await sbClient.from('bookings').insert({ customer_name: name, customer_memo: memo, start_datetime: time });
+        const dateStr = currentDate.toISOString().split('T')[0];
+        if (!name || !time) return alert('名前と時間を選択');
+        
+        // 日付(表示中のもの)と時間(選択したもの)を結合
+        await sbClient.from('bookings').insert({ customer_name: name, memo: memo, start_datetime: `${dateStr}T${time}:00` });
         alert('予約を追加しました'); fetchBookings();
     }
 
@@ -90,24 +65,16 @@
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
         
-        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
         
-        const dayOfWeek = new Date(dateStr).getDay();
-        const holidays = set.regular_holidays.split(',').map(d => d.trim());
-        const isHoliday = holidays.includes(dayOfWeek.toString());
-        
-        let html = isHoliday ? '<p style="color:red;">本日は定休日です</p>' : '';
-        const startH = parseInt(set.open_time.split(':')[0]);
-        const endH = parseInt(set.close_time.split(':')[0]);
-
-        for(let h=startH; h<endH; h++) {
+        let html = '';
+        // 10時〜19時まで表示
+        for(let h=10; h<19; h++) {
             [0, 30].forEach(m => {
                 const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const b = bookings?.find(item => item.start_datetime.substring(11, 16) === timeStr);
-                // メモがある場合は表示する
-                const memoDisplay = b?.customer_memo ? ` <small>(${b.customer_memo})</small>` : '';
-                html += `<div class="booking-item"><span>${timeStr} ${b ? ' - ' + b.customer_name + memoDisplay : '〇 空き'}</span>
+                const memoText = b?.memo ? ` <span style="color:#666; font-size:0.8em;">(メモ: ${b.memo})</span>` : '';
+                html += `<div class="booking-item"><span>${timeStr} ${b ? ' - ' + b.customer_name + memoText : '〇 空き'}</span>
                     ${b ? `<button onclick="deleteBooking(${b.id})" style="background:#d9534f;">削除</button>` : ''}</div>`;
             });
         }
