@@ -1,39 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salon Booking System</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #fcfbf9; padding: 20px; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; width: 100%; margin-bottom: 5px; }
+        .selected-slot { background: #d9a0a0 !important; }
+        li { list-style: none; border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 id="user-display">読み込み中...</h2>
+    <input type="hidden" id="edit_id">
+    
+    <label>お客様名</label>
+    <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
+    <label>備考（任意）</label>
+    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
+    <label>予約希望日</label>
+    <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
+    
+    <div id="time-slots"></div>
+    <input type="hidden" id="selected_datetime">
+    
+    <button id="save_btn" onclick="saveBooking()">予約を確定</button>
+    <button onclick="clearForm()" style="background:#aaa;">クリア</button>
+    
+    <h3 style="margin-top:30px;">あなたの予約一覧</h3>
+    <ul id="booking-list" style="padding:0;"></ul>
+</div>
+
 <script>
+    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
+    let lineUserId = "";
+
+    async function initLiff() {
+        await liff.init({ liffId: "2010243135-H06VsAHm" });
+        document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
+        
+        if (liff.isLoggedIn()) {
+            const p = await liff.getProfile();
+            lineUserId = p.userId;
+            document.getElementById('user-display').innerText = p.displayName + " 様";
+            fetchBookings();
+        } else { liff.login(); }
+    }
+
+    // 予約取得・保存・削除の関数は以前のまま使用
+    async function fetchBookings() {
+        const { data } = await sbClient.from('bookings').select('*').eq('line_user_id', lineUserId).order('start_datetime');
+        const list = document.getElementById('booking-list');
+        list.innerHTML = '';
+        data?.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `<div><strong>${item.customer_name}</strong><br>${item.start_datetime.replace('T', ' ').substring(0,16)}</div>
+                            <div><button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto;">削除</button></div>`;
+            list.append(li);
+        });
+    }
+
+    async function saveBooking() {
+        const name = document.getElementById('customer_name').value.trim();
+        const time = document.getElementById('selected_datetime').value;
+        if (!name || !time) return alert('名前と時間を選択してください');
+        await sbClient.from('bookings').insert({ customer_name: name, start_datetime: time, line_user_id: lineUserId });
+        alert('保存しました');
+        clearForm(); fetchBookings();
+    }
+
+    async function deleteBooking(id) {
+        if(!confirm('削除しますか？')) return;
+        await sbClient.from('bookings').delete().eq('id', id);
+        fetchBookings();
+    }
+
+    function clearForm() {
+        document.getElementById('customer_name').value = '';
+        document.getElementById('selected_datetime').value = '';
+        renderTimeSlots();
+    }
+
+    // ★ここが新しくなりました！DBの設定を読み込んで予約枠を生成します
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const container = document.getElementById('time-slots');
+        container.innerHTML = '';
         if (!dateStr) return;
 
-        // 設定の読み込み
-        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        // DBから営業時間と定休日を取得
+        const { data: setting } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        const dayOfWeek = new Date(dateStr).getDay();
         
-        // 定休日判定のガード
-        if (set && set.regular_holidays) {
-            const dayOfWeek = new Date(dateStr).getDay();
-            const holidays = set.regular_holidays.split(',').map(d => d.trim());
-            if (holidays.includes(dayOfWeek.toString())) {
-                container.innerHTML = '<p style="color:red; text-align:center;">本日は定休日です。</p>';
-                return;
-            }
+        // 定休日チェック（設定値が文字列なので比較に注意）
+        if (dayOfWeek.toString() === setting.regular_holidays) {
+            return container.innerHTML = '<p style="color:red;">定休日です。</p>';
         }
 
-        // 予約状況の取得
-        const { data: bookings } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
-        const booked = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
+        const startH = parseInt(setting.open_time.split(':')[0]);
+        const endH = parseInt(setting.close_time.split(':')[0]);
 
-        // 枠の表示
-        container.innerHTML = '';
-        const startH = set?.open_time ? parseInt(set.open_time.split(':')[0]) : 10;
-        const endH = set?.close_time ? parseInt(set.close_time.split(':')[0]) : 19;
-
+        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        const booked = data.map(b => b.start_datetime.substring(11, 16));
+        
         for (let h = startH; h < endH; h++) {
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const isBooked = booked.includes(t);
                 const btn = document.createElement('button');
-                btn.innerText = isBooked ? '✕' : t;
-                btn.disabled = isBooked;
-                if (isBooked) btn.style.background = '#eee';
+                btn.innerText = booked.includes(t) ? '✕' : t;
+                btn.disabled = booked.includes(t);
+                if (booked.includes(t)) btn.style.background = '#eee';
                 btn.onclick = () => {
                     document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
                     btn.classList.add('selected-slot');
@@ -43,6 +126,7 @@
             });
         }
     }
-    // 5秒ごとに自動更新
-    setInterval(renderTimeSlots, 5000);
+    initLiff();
 </script>
+</body>
+</html>
