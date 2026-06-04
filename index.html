@@ -1,43 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>オーナー管理画面</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .settings-box { background: #f8f8f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
+        .booking-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        button { cursor: pointer; padding: 10px; border-radius: 4px; border: none; color: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="login-view">
+        <h3>管理者ログイン</h3>
+        <input type="email" id="email" placeholder="メール" style="width:100%; margin-bottom:10px;">
+        <input type="password" id="password" placeholder="パスワード" style="width:100%; margin-bottom:10px;">
+        <button onclick="login()" style="width:100%; background:#8e7f7f;">ログイン</button>
+    </div>
+    <div id="admin-view" style="display:none;">
+        <div class="settings-box">
+            <h4>⚙️ 店舗設定</h4>
+            時間: <input type="time" id="open-time"> 〜 <input type="time" id="close-time"><br>
+            定休日(0:日-6:土, カンマ区切り): <input type="text" id="regular-holiday" placeholder="例: 1,2" style="width:100px;">
+            <button onclick="saveSettings()" style="background:#5cb85c; margin-top:10px; width:100%;">設定を保存</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+            <button onclick="changeDate(-1)" style="background:#888;">← 前日</button>
+            <h3 id="display-date"></h3>
+            <button onclick="changeDate(1)" style="background:#888;">翌日 →</button>
+        </div>
+        <div id="booking-list"></div>
+    </div>
+</div>
 <script>
-    // ... 前半省略 ...
-    async function renderTimeSlots() {
-        const dateStr = document.getElementById('select_date').value;
-        const container = document.getElementById('time-slots');
-        container.innerHTML = '';
-        if (!dateStr) return;
-
-        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
-        const dayOfWeek = new Date(dateStr).getDay();
-        
-        // 複数定休日対応の判定
-        const holidayArray = set.regular_holidays.split(',').map(d => d.trim());
-        if (holidayArray.includes(dayOfWeek.toString())) {
-            return container.innerHTML = '<p style="color:red;">本日は定休日です。</p>';
-        }
-
-        const startH = parseInt(set.open_time.split(':')[0]);
-        const endH = parseInt(set.close_time.split(':')[0]);
-
-        const { data } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
-        const booked = data.map(b => b.start_datetime.substring(11, 16));
-        
-        for (let h = startH; h < endH; h++) {
-            [0, 30].forEach(m => {
-                const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const btn = document.createElement('button');
-                btn.innerText = booked.includes(t) ? '✕' : t;
-                btn.disabled = booked.includes(t);
-                if (booked.includes(t)) btn.style.background = '#eee';
-                btn.onclick = () => {
-                    document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
-                    btn.classList.add('selected-slot');
-                    document.getElementById('selected_datetime').value = `${dateStr}T${t}:00`;
-                };
-                container.appendChild(btn);
-            });
+    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
+    let currentDate = new Date();
+    async function login() {
+        const { error } = await sbClient.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
+        if (error) return alert('ログイン失敗');
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('admin-view').style.display = 'block';
+        loadSettings(); fetchBookings();
+    }
+    async function loadSettings() {
+        const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        if (data) {
+            document.getElementById('open-time').value = data.open_time;
+            document.getElementById('close-time').value = data.close_time;
+            document.getElementById('regular-holiday').value = data.regular_holidays;
         }
     }
-    initLiff();
-    // 5秒ごとの自動更新を追加
-    setInterval(renderTimeSlots, 5000); 
+    async function saveSettings() {
+        const { error } = await sbClient.from('salon_settings').update({
+            open_time: document.getElementById('open-time').value,
+            close_time: document.getElementById('close-time').value,
+            regular_holidays: document.getElementById('regular-holiday').value
+        }).eq('id', 1);
+        if (error) alert('保存失敗: ' + error.message); else { alert('保存しました！'); loadSettings(); }
+    }
+    function changeDate(d) { currentDate.setDate(currentDate.getDate() + d); fetchBookings(); }
+    async function fetchBookings() {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        document.getElementById('display-date').innerText = dateStr;
+        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
+        let html = '';
+        const startH = set?.open_time ? parseInt(set.open_time.split(':')[0]) : 10;
+        const endH = set?.close_time ? parseInt(set.close_time.split(':')[0]) : 19;
+        for(let h=startH; h<endH; h++) {
+            [0, 30].forEach(m => {
+                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const b = bookings?.find(item => item.start_datetime.substring(11, 16) === time);
+                html += `<div class="booking-item"><span>${time} ${b ? ' - ' + b.customer_name : '〇 空き'}</span>
+                    ${b ? `<button onclick="deleteBooking(${b.id})" style="background:#d9534f; width:60px;">削除</button>` : ''}</div>`;
+            });
+        }
+        document.getElementById('booking-list').innerHTML = html;
+    }
+    async function deleteBooking(id) { if(confirm('削除しますか？')) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); } }
 </script>
+</body>
+</html>
