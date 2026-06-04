@@ -14,17 +14,29 @@
 <body>
 <div class="container">
     <h3>スタッフ予約確認</h3>
-    <label>担当者を選択してください</label>
-    <select id="staff-selector" onchange="fetchStaffBookings()">
-        <option value="">-- 名前を選択 --</option>
-    </select>
-    <div id="staff-booking-list"></div>
+    <div id="content" style="display:none;">
+        <label>担当者を選択してください</label>
+        <select id="staff-selector" onchange="fetchStaffBookings()">
+            <option value="">-- 名前を選択 --</option>
+        </select>
+        <div id="staff-booking-list"></div>
+    </div>
 </div>
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
 
+    // ★ここにパスワードを設定してください（例: 2026）
+    const STAFF_PASSWORD = "2026"; 
+
     async function init() {
+        const pass = prompt("スタッフ用パスワードを入力してください");
+        if (pass !== STAFF_PASSWORD) {
+            alert("パスワードが違います");
+            return; // 何もしない（画面を表示しない）
+        }
+        document.getElementById('content').style.display = 'block';
+
         const { data } = await sbClient.from('staffs').select('*');
         const selector = document.getElementById('staff-selector');
         data?.forEach(s => {
@@ -39,7 +51,6 @@
         
         list.innerHTML = '読み込み中...';
         
-        // そのスタッフの予約のみを取得（今日以降）
         const today = new Date().toISOString().split('T')[0];
         const { data } = await sbClient.from('bookings')
             .select('*')
