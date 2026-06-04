@@ -22,7 +22,7 @@
 <div class="container">
     <h2 id="user-display">読み込み中...</h2>
     
-    <label>お客様名</label>
+    <label>お客様名（フルネーム）</label>
     <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
     <label>備考（任意）</label>
     <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
@@ -58,7 +58,16 @@
         const { data } = await sbClient.from('bookings').select('*').eq('line_user_id', lineUserId).order('start_datetime');
         const list = document.getElementById('booking-list');
         list.innerHTML = '';
+        const now = new Date();
+
         data?.forEach(item => {
+            const bookingDate = new Date(item.start_datetime);
+            const diffTime = bookingDate - now;
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            
+            // 【機能追加】24時間前（1日）を切っていたらキャンセルボタンを隠す
+            const canCancel = diffDays > 1;
+
             const div = document.createElement('div');
             div.className = 'booking-item';
             div.innerHTML = `
@@ -67,7 +76,7 @@
                     ${item.customer_name}
                     ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}
                 </div>
-                <button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">削除</button>`;
+                ${canCancel ? `<button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">削除</button>` : '<p style="color:red; font-size:0.8em;">※前日以降の変更は電話へ</p>'}`;
             list.append(div);
         });
     }
@@ -76,6 +85,11 @@
         const name = document.getElementById('customer_name').value.trim();
         const memo = document.getElementById('customer_memo').value.trim();
         const time = document.getElementById('selected_datetime').value;
+        
+        // 【機能追加】フルネーム必須チェック
+        if (!name.includes(' ') && !name.includes('　')) {
+            return alert('お名前は「苗字」と「お名前」をスペースで区切ってフルネームで入力してください。');
+        }
         if (!name || !time) return alert('名前と時間を選択してください');
         
         const { error } = await sbClient.from('bookings').insert({ 
@@ -100,7 +114,6 @@
         renderTimeSlots();
     }
 
-    // renderTimeSlots 関数は変更なし
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const container = document.getElementById('time-slots');
