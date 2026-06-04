@@ -99,10 +99,23 @@
         const name = prompt("お客様名");
         if (!name) return;
         const memo = prompt("メモ");
-        const staffNames = window.currentStaffs.map(s => s.name).join(', ');
-        const staff = prompt("担当スタッフ名\n" + staffNames);
+
+        // スタッフの選択肢リストを作成
+        const staffOptions = window.currentStaffs.map((s, index) => `${index + 1}: ${s.name}`).join('\n');
+        const staffIndex = prompt("担当スタッフの番号を入力してください:\n0: 指定なし(お任せ)\n" + staffOptions);
+        
+        let selectedStaff = "お任せ";
+        if (staffIndex !== null && staffIndex !== "0" && window.currentStaffs[parseInt(staffIndex) - 1]) {
+            selectedStaff = window.currentStaffs[parseInt(staffIndex) - 1].name;
+        }
+        
         const dateStr = currentDate.toISOString().split('T')[0];
-        await sbClient.from('bookings').insert({ customer_name: name, memo: memo, start_datetime: `${dateStr}T${time}:00`, staff_name: staff });
+        await sbClient.from('bookings').insert({ 
+            customer_name: name, 
+            memo: memo, 
+            staff_name: selectedStaff, 
+            start_datetime: `${dateStr}T${time}:00` 
+        });
         fetchBookings();
     }
 
