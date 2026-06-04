@@ -8,11 +8,11 @@
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .settings-box { background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 20px; }
-        .booking-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .time-label { font-weight: bold; width: 60px; }
+        .booking-row { padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: flex-start; }
+        .time-label { font-weight: bold; width: 60px; flex-shrink: 0; }
         input, select { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; color: white; background: #8e7f7f; }
-        .staff-tag { background:#e1f5fe; padding:5px 10px; border-radius:15px; border:1px solid #b3e5fc; display:flex; align-items:center; gap:8px; font-size:14px; }
+        button { cursor: pointer; padding: 6px 10px; border-radius: 4px; border: none; color: white; background: #8e7f7f; }
+        .staff-tag { background:#e1f5fe; padding:4px 8px; border-radius:15px; border:1px solid #b3e5fc; display:flex; align-items:center; gap:5px; font-size:13px; margin-right:5px; }
     </style>
 </head>
 <body>
@@ -34,7 +34,7 @@
 
         <div class="settings-box">
             <h4>👥 スタッフ管理</h4>
-            <div id="staff-list-grid" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
+            <div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
             <input type="text" id="new-staff-name" placeholder="新しいスタッフ名">
             <button onclick="addStaff()" style="background:#5cb85c; width:100%;">スタッフを追加</button>
         </div>
@@ -81,11 +81,8 @@
     async function fetchStaffs() {
         const { data } = await sbClient.from('staffs').select('*');
         window.currentStaffs = data || [];
-        const list = document.getElementById('staff-list-grid');
-        list.innerHTML = window.currentStaffs.map(s => `
-            <div class="staff-tag">${s.name}
-                <button onclick="deleteStaff(${s.id})" style="background:#ff5252; border-radius:50%; padding:0 6px; border:none; color:white; cursor:pointer;">✕</button>
-            </div>`).join('');
+        document.getElementById('staff-list-grid').innerHTML = window.currentStaffs.map(s => `
+            <div class="staff-tag">${s.name}<button onclick="deleteStaff(${s.id})" style="background:none; color:#ff5252; padding:0;">✕</button></div>`).join('');
     }
 
     async function addStaff() {
@@ -96,24 +93,15 @@
         fetchStaffs();
     }
 
-    async function deleteStaff(id) {
-        if (!confirm('このスタッフを削除しますか？')) return;
-        await sbClient.from('staffs').delete().eq('id', id);
-        fetchStaffs();
-    }
+    async function deleteStaff(id) { if(confirm('スタッフを削除しますか？')) { await sbClient.from('staffs').delete().eq('id', id); fetchStaffs(); } }
 
     async function addBooking(time) {
-        const name = prompt("お客様名を入力してください");
+        const name = prompt("お客様名");
         if (!name) return;
-        const memo = prompt("メモを入力（任意）");
         const staffNames = window.currentStaffs.map(s => s.name).join(', ');
-        const staff = prompt("担当スタッフ名を入力\n利用可能: " + staffNames);
-        
+        const staff = prompt("担当スタッフ名\n" + staffNames);
         const dateStr = currentDate.toISOString().split('T')[0];
-        await sbClient.from('bookings').insert({ 
-            customer_name: name, memo: memo, staff_name: staff,
-            start_datetime: `${dateStr}T${time}:00` 
-        });
+        await sbClient.from('bookings').insert({ customer_name: name, start_datetime: `${dateStr}T${time}:00`, staff_name: staff });
         fetchBookings();
     }
 
@@ -122,7 +110,6 @@
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
         document.getElementById('display-date').innerText = dateStr;
-        
         const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
         
@@ -132,24 +119,20 @@
 
         for(let h=startH; h<endH; h++) {
             [0, 30].forEach(m => {
-                const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const b = bookings?.find(item => item.start_datetime.substring(11, 16) === timeStr);
+                const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const timeBookings = bookings?.filter(b => b.start_datetime.substring(11, 16) === t);
                 
-                if (b) {
-                    html += `<div class="booking-item"><span class="time-label">${timeStr}</span> 
-                            <span>${b.customer_name} [担当: ${b.staff_name || '未指定'}] ${b.memo ? '('+b.memo+')' : ''}</span>
-                            <button onclick="deleteBooking(${b.id})" style="background:#d9534f;">削除</button></div>`;
-                } else {
-                    html += `<div class="booking-item"><span class="time-label">${timeStr}</span> 
-                            <span style="color:#aaa;">〇 空き</span>
-                            <button onclick="addBooking('${timeStr}')" style="background:#5cb85c;">予約を入れる</button></div>`;
-                }
+                html += `<div class="booking-row"><span class="time-label">${t}</span><div style="flex-grow:1;">`;
+                if (timeBookings?.length > 0) {
+                    timeBookings.forEach(b => html += `<div>${b.customer_name} [${b.staff_name || '未指定'}] <button onclick="deleteBooking(${b.id})" style="background:#d9534f; font-size:10px;">削除</button></div>`);
+                } else { html += `<span style="color:#ccc;">〇 空き</span>`; }
+                html += `</div><button onclick="addBooking('${t}')" style="background:#5cb85c;">＋</button></div>`;
             });
         }
         document.getElementById('booking-list').innerHTML = html;
     }
 
-    async function deleteBooking(id) { if(confirm('予約を削除しますか？')) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); } }
+    async function deleteBooking(id) { if(confirm('削除しますか？')) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); } }
 </script>
 </body>
 </html>
