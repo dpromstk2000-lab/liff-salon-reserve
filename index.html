@@ -1,51 +1,27 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>予約画面</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .container { max-width: 400px; margin: 0 auto; }
-        #time-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        button { padding: 10px; cursor: pointer; }
-        .selected-slot { background: #5cb85c; color: white; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>予約日時を選択</h2>
-        <input type="date" id="select_date" onchange="renderTimeSlots()">
-        <div id="time-slots"></div>
-        <input type="hidden" id="selected_datetime">
-    </div>
-
 <script>
-    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
-
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const container = document.getElementById('time-slots');
-        container.innerHTML = '読み込み中...';
-        if (!dateStr) return container.innerHTML = '';
+        if (!dateStr) return;
 
-        // 1. 設定と予約情報を取得
+        // 設定の読み込み
         const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
-        const { data: bookings } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
         
-        const booked = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
-
-        // 2. 定休日チェック
+        // 定休日判定のガード
         if (set && set.regular_holidays) {
             const dayOfWeek = new Date(dateStr).getDay();
-            const holidayArray = set.regular_holidays.split(',').map(d => d.trim());
-            if (holidayArray.includes(dayOfWeek.toString())) {
-                return container.innerHTML = '<p style="color:red; text-align:center;">本日は定休日です。</p>';
+            const holidays = set.regular_holidays.split(',').map(d => d.trim());
+            if (holidays.includes(dayOfWeek.toString())) {
+                container.innerHTML = '<p style="color:red; text-align:center;">本日は定休日です。</p>';
+                return;
             }
         }
 
-        // 3. 時間枠の描画
+        // 予約状況の取得
+        const { data: bookings } = await sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        const booked = bookings ? bookings.map(b => b.start_datetime.substring(11, 16)) : [];
+
+        // 枠の表示
         container.innerHTML = '';
         const startH = set?.open_time ? parseInt(set.open_time.split(':')[0]) : 10;
         const endH = set?.close_time ? parseInt(set.close_time.split(':')[0]) : 19;
@@ -70,5 +46,3 @@
     // 5秒ごとに自動更新
     setInterval(renderTimeSlots, 5000);
 </script>
-</body>
-</html>
