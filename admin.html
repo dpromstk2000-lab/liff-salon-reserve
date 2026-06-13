@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>オーナー管理画面</title>
+    <title>オーナー管理画面（ログイン省略版）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
@@ -18,23 +18,17 @@
 </head>
 <body>
 <div class="container">
-    <div id="login-view">
-        <h3>管理者ログイン</h3>
-        <input type="email" id="email" placeholder="メール">
-        <input type="password" id="password" placeholder="パスワード">
-        <button onclick="login()" style="width:100%;">ログイン</button>
-    </div>
-    
-    <div id="admin-view" style="display:none;">
+    <div id="admin-view">
+        <h3>⚙️ 店舗設定・予約管理</h3>
         <div class="settings-box">
-            <h4>⚙️ 店舗設定</h4>
+            <h4>店舗設定</h4>
             <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
             <input type="text" id="regular-holiday" placeholder="定休日(0:日-6:土, カンマ区切り)">
             <button onclick="saveSettings()" style="background:#5cb85c; width:100%;">設定を保存</button>
         </div>
 
         <div class="settings-box">
-            <h4>👥 スタッフ管理</h4>
+            <h4>スタッフ管理</h4>
             <div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
             <input type="text" id="new-staff-name" placeholder="新しいスタッフ名">
             <button onclick="addStaff()" style="background:#5cb85c; width:100%;">スタッフを追加</button>
@@ -53,13 +47,12 @@
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
 
-    async function login() {
-        const { error } = await sbClient.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
-        if (error) return alert('ログイン失敗');
-        document.getElementById('login-view').style.display = 'none';
-        document.getElementById('admin-view').style.display = 'block';
-        loadSettings(); fetchStaffs(); fetchBookings();
-    }
+    // ページ読み込み時に自動実行
+    window.onload = () => {
+        loadSettings();
+        fetchStaffs();
+        fetchBookings();
+    };
 
     async function loadSettings() {
         const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
