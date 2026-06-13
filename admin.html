@@ -2,99 +2,277 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>オーナー管理画面（ログイン省略版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オーナー管理画面</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .settings-box { background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 20px; }
-        .booking-row { padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; }
-        .time-label { font-weight: bold; width: 60px; flex-shrink: 0; }
-        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { cursor: pointer; padding: 6px 10px; border-radius: 4px; border: none; color: white; background: #8e7f7f; }
-        button:disabled { background: #ccc !important; cursor: not-allowed; }
-        .staff-tag { background:#e1f5fe; padding:4px 8px; border-radius:15px; border:1px solid #b3e5fc; display:flex; align-items:center; gap:5px; font-size:13px; margin-right:5px; }
+        :root {
+            /* ダークブラウン基調のカラーパレット */
+            --bg-body: #f5f3f0;
+            --bg-card: #ffffff;
+            --text-main: #3e2723;
+            --text-muted: #8d6e63;
+            --primary-brown: #4e342e;
+            --btn-accent: #795548;
+            --btn-accent-hover: #5d4037;
+            --border-color: #d7ccc8;
+            --booked-bg: #efebe9;
+            --danger-btn: #bcaaa4;
+        }
+
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            padding: 20px; 
+            background: var(--bg-body); 
+            color: var(--text-main); 
+            margin: 0;
+        }
+        
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: var(--bg-card); 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(62, 39, 35, 0.08); 
+        }
+
+        h3 { border-bottom: 2px solid var(--primary-brown); padding-bottom: 10px; color: var(--primary-brown); }
+        h4 { margin: 10px 0; color: var(--primary-brown); }
+
+        /* アコーディオン（折りたたみ）ボタン */
+        .toggle-btn {
+            width: 100%;
+            background: var(--bg-body);
+            color: var(--primary-brown);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-weight: bold;
+            margin-bottom: 15px;
+            transition: background 0.2s;
+        }
+        .toggle-btn:hover { background: var(--border-color); }
+
+        /* 設定エリア（初期状態は非表示） */
+        #settings-area { display: none; }
+        .settings-box { 
+            background: #faf8f5; 
+            padding: 15px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+        }
+
+        /* 曜日チェックボックス */
+        .holiday-checkboxes { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+        .holiday-checkboxes label { 
+            background: var(--bg-card); 
+            border: 1px solid var(--border-color); 
+            padding: 5px 10px; 
+            border-radius: 20px; 
+            cursor: pointer; 
+            font-size: 14px;
+        }
+        .holiday-checkboxes input[type="checkbox"] { margin-right: 5px; }
+
+        /* 入力フォーム・ボタン */
+        input[type="time"], input[type="text"] { 
+            padding: 10px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            font-size: 15px;
+        }
+        button { 
+            cursor: pointer; 
+            padding: 8px 15px; 
+            border-radius: 6px; 
+            border: none; 
+            color: white; 
+            background: var(--btn-accent); 
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #d7ccc8 !important; cursor: not-allowed; }
+        .save-btn { width: 100%; padding: 12px; font-size: 16px; background: var(--primary-brown); margin-top: 10px; }
+        
+        /* スタッフタグ */
+        .staff-tag { 
+            background: var(--bg-body); 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            border: 1px solid var(--border-color); 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            font-size: 14px; 
+        }
+        .staff-tag button { background: none; color: #d32f2f; padding: 0; font-weight: bold; font-size: 16px; }
+
+        /* 日付ナビゲーションとサマリー */
+        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .date-nav h3 { border: none; margin: 0; padding: 0; font-size: 22px; }
+        .summary-text { text-align: center; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; font-weight: bold; }
+
+        /* 予約リストの行 */
+        .booking-row { 
+            padding: 15px 10px; 
+            border-bottom: 1px solid var(--border-color); 
+            display: flex; 
+            align-items: flex-start; 
+        }
+        .time-label { font-weight: bold; font-size: 18px; width: 65px; flex-shrink: 0; color: var(--primary-brown); margin-top: 2px;}
+        
+        .booking-content { flex-grow: 1; }
+        .booked-item { 
+            background: var(--booked-bg); 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            margin-bottom: 5px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        .empty-slot { color: #a1887f; padding: 8px 0; }
+        .memo-text { font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block; }
+        .delete-btn { background: var(--danger-btn); font-size: 12px; padding: 4px 8px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div id="admin-view">
-        <h3>⚙️ 店舗設定・予約管理</h3>
+    <h3>サロン予約管理</h3>
+
+    <button class="toggle-btn" onclick="toggleSettings()">⚙️ 店舗設定・スタッフ管理を開く ▼</button>
+
+    <div id="settings-area">
         <div class="settings-box">
             <h4>店舗設定</h4>
-            <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
-            <input type="text" id="regular-holiday" placeholder="定休日(0:日-6:土, カンマ区切り)">
-            <button onclick="saveSettings()" style="background:#5cb85c; width:100%;">設定を保存</button>
+            <div style="margin-bottom: 10px;">
+                <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
+            </div>
+            
+            <label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">定休日を設定</label>
+            <div class="holiday-checkboxes" id="holiday-checkboxes">
+                <label><input type="checkbox" value="0" class="hol-cb">日</label>
+                <label><input type="checkbox" value="1" class="hol-cb">月</label>
+                <label><input type="checkbox" value="2" class="hol-cb">火</label>
+                <label><input type="checkbox" value="3" class="hol-cb">水</label>
+                <label><input type="checkbox" value="4" class="hol-cb">木</label>
+                <label><input type="checkbox" value="5" class="hol-cb">金</label>
+                <label><input type="checkbox" value="6" class="hol-cb">土</label>
+            </div>
+            <button class="save-btn" onclick="saveSettings()">設定を保存</button>
         </div>
 
         <div class="settings-box">
             <h4>スタッフ管理</h4>
-            <div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
-            <input type="text" id="new-staff-name" placeholder="新しいスタッフ名">
-            <button onclick="addStaff()" style="background:#5cb85c; width:100%;">スタッフを追加</button>
+            <div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px;"></div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="new-staff-name" placeholder="新しいスタッフ名" style="flex-grow: 1;">
+                <button onclick="addStaff()">追加</button>
+            </div>
         </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <button onclick="changeDate(-1)">← 前日</button>
-            <h3 id="display-date"></h3>
-            <button onclick="changeDate(1)">翌日 →</button>
-        </div>
-        <div id="booking-list"></div>
     </div>
+
+    <div class="date-nav">
+        <button onclick="changeDate(-1)">← 前日</button>
+        <h3 id="display-date"></h3>
+        <button onclick="changeDate(1)">翌日 →</button>
+    </div>
+    
+    <div id="daily-summary" class="summary-text"></div>
+
+    <div id="booking-list"></div>
 </div>
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let currentDate = new Date();
+    window.currentStaffs = [];
 
-    // ページ読み込み時に自動実行
     window.onload = () => {
         loadSettings();
         fetchStaffs();
-        fetchBookings();
     };
+
+    // アコーディオンの開閉
+    function toggleSettings() {
+        const area = document.getElementById('settings-area');
+        const btn = document.querySelector('.toggle-btn');
+        if (area.style.display === 'none' || area.style.display === '') {
+            area.style.display = 'block';
+            btn.innerText = '⚙️ 店舗設定・スタッフ管理を閉じる ▲';
+        } else {
+            area.style.display = 'none';
+            btn.innerText = '⚙️ 店舗設定・スタッフ管理を開く ▼';
+        }
+    }
 
     async function loadSettings() {
         const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         if (data) {
             document.getElementById('open-time').value = data.open_time;
             document.getElementById('close-time').value = data.close_time;
-            document.getElementById('regular-holiday').value = data.regular_holidays;
+            
+            // チェックボックスに反映
+            const holidays = data.regular_holidays ? data.regular_holidays.split(',') : [];
+            document.querySelectorAll('.hol-cb').forEach(cb => {
+                cb.checked = holidays.includes(cb.value);
+            });
         }
     }
 
     async function saveSettings() {
+        // チェックされた曜日を取得してカンマ区切りに変換
+        const checkedHolidays = Array.from(document.querySelectorAll('.hol-cb:checked'))
+                                     .map(cb => cb.value)
+                                     .join(',');
+
         await sbClient.from('salon_settings').update({
             open_time: document.getElementById('open-time').value,
             close_time: document.getElementById('close-time').value,
-            regular_holidays: document.getElementById('regular-holiday').value
+            regular_holidays: checkedHolidays
         }).eq('id', 1);
+        
         alert('設定を保存しました');
+        fetchBookings();
     }
 
     async function fetchStaffs() {
         const { data } = await sbClient.from('staffs').select('*');
         window.currentStaffs = data || [];
         document.getElementById('staff-list-grid').innerHTML = window.currentStaffs.map(s => `
-            <div class="staff-tag">${s.name}<button onclick="deleteStaff(${s.id})" style="background:none; color:#ff5252; padding:0;">✕</button></div>`).join('');
+            <div class="staff-tag">${s.name}<button onclick="deleteStaff(${s.id})">✕</button></div>
+        `).join('');
+        fetchBookings(); // スタッフ数が変わると空き枠計算が変わるため再取得
     }
 
     async function addStaff() {
-        const name = document.getElementById('new-staff-name').value;
+        const name = document.getElementById('new-staff-name').value.trim();
         if (!name) return;
         await sbClient.from('staffs').insert({ name: name });
         document.getElementById('new-staff-name').value = '';
         fetchStaffs();
     }
 
-    async function deleteStaff(id) { if(confirm('スタッフを削除しますか？')) { await sbClient.from('staffs').delete().eq('id', id); fetchStaffs(); } }
+    async function deleteStaff(id) {
+        if(confirm('スタッフを削除しますか？')) { 
+            await sbClient.from('staffs').delete().eq('id', id); 
+            fetchStaffs(); 
+        }
+    }
 
     async function addBooking(time) {
         const name = prompt("お客様名");
         if (!name) return;
-        const memo = prompt("メモ");
+        const memo = prompt("メモ（任意）") || "";
+        
         const staffOptions = window.currentStaffs.map((s, index) => `${index + 1}: ${s.name}`).join('\n');
-        const staffIndex = prompt("担当スタッフ番号:\n0: 指定なし(お任せ)\n" + staffOptions);
+        const staffIndex = prompt(`担当スタッフ番号を入力してください:\n0: 指定なし(お任せ)\n${staffOptions}`);
         
         let selectedStaff = "お任せ";
         if (staffIndex !== null && staffIndex !== "0" && window.currentStaffs[parseInt(staffIndex) - 1]) {
@@ -108,45 +286,85 @@
         fetchBookings();
     }
 
-    function changeDate(d) { currentDate.setDate(currentDate.getDate() + d); fetchBookings(); }
+    function changeDate(d) { 
+        currentDate.setDate(currentDate.getDate() + d); 
+        fetchBookings(); 
+    }
 
     async function fetchBookings() {
         const dateStr = currentDate.toISOString().split('T')[0];
-        document.getElementById('display-date').innerText = dateStr;
+        
+        // 曜日テキストを取得
+        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+        const dayText = dayNames[currentDate.getDay()];
+        document.getElementById('display-date').innerText = `${dateStr} (${dayText})`;
+
         const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
         const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
-        const { data: staffs } = await sbClient.from('staffs').select('*');
         
-        const staffCount = staffs ? staffs.length : 0;
-        let html = '';
+        const staffCount = window.currentStaffs.length;
         const startH = parseInt(set.open_time.split(':')[0]);
         const endH = parseInt(set.close_time.split(':')[0]);
+        
+        let totalSlots = 0;
+        let html = '';
 
         for(let h=startH; h<endH; h++) {
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const timeBookings = bookings?.filter(b => b.start_datetime.substring(11, 16) === t);
-                const bookedCount = timeBookings ? timeBookings.length : 0;
+                const timeBookings = bookings?.filter(b => b.start_datetime.substring(11, 16) === t) || [];
+                const bookedCount = timeBookings.length;
                 
-                html += `<div class="booking-row"><span class="time-label">${t}</span><div style="flex-grow:1;">`;
+                // サマリー用計算
+                totalSlots += staffCount > 0 ? staffCount : 1; 
+                
+                html += `<div class="booking-row">
+                            <span class="time-label">${t}</span>
+                            <div class="booking-content">`;
+                
                 if (bookedCount > 0) {
                     timeBookings.forEach(b => {
-                        html += `<div>${b.customer_name} [${b.staff_name}] <button onclick="deleteBooking(${b.id})" style="background:#d9534f; font-size:10px;">削除</button></div>`;
+                        const memoHtml = b.memo ? `<span class="memo-text">📝 ${b.memo}</span>` : '';
+                        html += `<div class="booked-item">
+                                    <div>
+                                        <strong>${b.customer_name}</strong> [${b.staff_name}]
+                                        ${memoHtml}
+                                    </div>
+                                    <button class="delete-btn" onclick="deleteBooking(${b.id})">削除</button>
+                                 </div>`;
                     });
-                } else { html += `<span style="color:#ccc;">〇 空き</span>`; }
+                }
+                
+                if (bookedCount < staffCount || staffCount === 0) {
+                    html += `<div class="empty-slot">〇 空きがあります</div>`;
+                }
+                html += `</div>`;
+
+                // ボタン制御
+                if (bookedCount >= staffCount && staffCount > 0) {
+                    html += `<button disabled style="margin-left:10px;">満席</button>`;
+                } else {
+                    html += `<button onclick="addBooking('${t}')" style="margin-left:10px;">＋ 予約</button>`;
+                }
                 
                 html += `</div>`;
-                if (bookedCount >= staffCount && staffCount > 0) {
-                    html += `<button disabled>満席</button></div>`;
-                } else {
-                    html += `<button onclick="addBooking('${t}')" style="background:#5cb85c;">＋</button></div>`;
-                }
             });
         }
+        
+        // サマリーの更新
+        const totalBooked = bookings ? bookings.length : 0;
+        const remaining = totalSlots > 0 ? totalSlots - totalBooked : 0;
+        document.getElementById('daily-summary').innerText = `本日の予約：${totalBooked}件 / 残り空き枠：${remaining}枠`;
+        
         document.getElementById('booking-list').innerHTML = html;
     }
 
-    async function deleteBooking(id) { if(confirm('削除しますか？')) { await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); } }
+    async function deleteBooking(id) { 
+        if(confirm('この予約を削除しますか？')) { 
+            await sbClient.from('bookings').delete().eq('id', id); 
+            fetchBookings(); 
+        } 
+    }
 </script>
 </body>
 </html>
