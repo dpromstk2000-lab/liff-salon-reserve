@@ -7,7 +7,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            /* ダークブラウン基調のカラーパレット */
             --bg-body: #f5f3f0;
             --bg-card: #ffffff;
             --text-main: #3e2723;
@@ -37,10 +36,17 @@
             box-shadow: 0 4px 15px rgba(62, 39, 35, 0.08); 
         }
 
-        h3 { border-bottom: 2px solid var(--primary-brown); padding-bottom: 10px; color: var(--primary-brown); }
-        h4 { margin: 10px 0; color: var(--primary-brown); }
+        h3 {
+            border-bottom: 2px solid var(--primary-brown);
+            padding-bottom: 10px;
+            color: var(--primary-brown);
+        }
 
-        /* アコーディオン（折りたたみ）ボタン */
+        h4 {
+            margin: 10px 0;
+            color: var(--primary-brown);
+        }
+
         .toggle-btn {
             width: 100%;
             background: var(--bg-body);
@@ -55,10 +61,15 @@
             margin-bottom: 15px;
             transition: background 0.2s;
         }
-        .toggle-btn:hover { background: var(--border-color); }
 
-        /* 設定エリア（初期状態は非表示） */
-        #settings-area { display: none; }
+        .toggle-btn:hover {
+            background: var(--border-color);
+        }
+
+        #settings-area {
+            display: none;
+        }
+
         .settings-box { 
             background: #faf8f5; 
             padding: 15px; 
@@ -67,8 +78,13 @@
             margin-bottom: 20px; 
         }
 
-        /* 曜日チェックボックス */
-        .holiday-checkboxes { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+        .holiday-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
         .holiday-checkboxes label { 
             background: var(--bg-card); 
             border: 1px solid var(--border-color); 
@@ -77,15 +93,26 @@
             cursor: pointer; 
             font-size: 14px;
         }
-        .holiday-checkboxes input[type="checkbox"] { margin-right: 5px; }
 
-        /* 入力フォーム・ボタン */
-        input[type="time"], input[type="text"] { 
+        .holiday-checkboxes input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        input[type="time"],
+        input[type="text"],
+        input[type="date"] { 
             padding: 10px; 
             border: 1px solid var(--border-color); 
             border-radius: 6px; 
             font-size: 15px;
+            box-sizing: border-box;
         }
+
+        .full-input {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
         button { 
             cursor: pointer; 
             padding: 8px 15px; 
@@ -96,11 +123,24 @@
             font-size: 14px;
             transition: opacity 0.2s;
         }
-        button:hover { opacity: 0.9; }
-        button:disabled { background: #d7ccc8 !important; cursor: not-allowed; }
-        .save-btn { width: 100%; padding: 12px; font-size: 16px; background: var(--primary-brown); margin-top: 10px; }
-        
-        /* スタッフタグ */
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            background: #d7ccc8 !important;
+            cursor: not-allowed;
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background: var(--primary-brown);
+            margin-top: 10px;
+        }
+
         .staff-tag { 
             background: var(--bg-body); 
             padding: 6px 12px; 
@@ -111,23 +151,58 @@
             gap: 8px; 
             font-size: 14px; 
         }
-        .staff-tag button { background: none; color: #d32f2f; padding: 0; font-weight: bold; font-size: 16px; }
 
-        /* 日付ナビゲーションとサマリー */
-        .date-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .date-nav h3 { border: none; margin: 0; padding: 0; font-size: 22px; }
-        .summary-text { text-align: center; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; font-weight: bold; }
+        .staff-tag button {
+            background: none;
+            color: #d32f2f;
+            padding: 0;
+            font-weight: bold;
+            font-size: 16px;
+        }
 
-        /* 予約リストの行 */
+        .date-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .date-nav h3 {
+            border: none;
+            margin: 0;
+            padding: 0;
+            font-size: 22px;
+        }
+
+        .summary-text {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            font-weight: bold;
+            line-height: 1.6;
+        }
+
         .booking-row { 
             padding: 15px 10px; 
             border-bottom: 1px solid var(--border-color); 
             display: flex; 
             align-items: flex-start; 
         }
-        .time-label { font-weight: bold; font-size: 18px; width: 65px; flex-shrink: 0; color: var(--primary-brown); margin-top: 2px;}
+
+        .time-label {
+            font-weight: bold;
+            font-size: 18px;
+            width: 65px;
+            flex-shrink: 0;
+            color: var(--primary-brown);
+            margin-top: 2px;
+        }
         
-        .booking-content { flex-grow: 1; }
+        .booking-content {
+            flex-grow: 1;
+        }
+
         .booked-item { 
             background: var(--booked-bg); 
             padding: 8px 12px; 
@@ -136,10 +211,84 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center;
+            gap: 8px;
         }
-        .empty-slot { color: #a1887f; padding: 8px 0; }
-        .memo-text { font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block; }
-        .delete-btn { background: var(--danger-btn); font-size: 12px; padding: 4px 8px; }
+
+        .empty-slot {
+            color: #a1887f;
+            padding: 8px 0;
+        }
+
+        .memo-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: block;
+        }
+
+        .delete-btn {
+            background: var(--danger-btn);
+            font-size: 12px;
+            padding: 4px 8px;
+            flex-shrink: 0;
+        }
+
+        .closed-list {
+            margin-top: 12px;
+        }
+
+        .closed-item {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .closed-date {
+            font-weight: bold;
+            color: var(--primary-brown);
+        }
+
+        .closed-reason {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        .note-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+
+        .message {
+            font-size: 13px;
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+
+        .success {
+            color: #2e7d32;
+        }
+
+        .error {
+            color: #c62828;
+        }
+
+        .closed-day-box {
+            background: #fff8f6;
+            border: 1px solid #e0c7bd;
+            border-radius: 10px;
+            padding: 15px;
+            line-height: 1.7;
+            color: var(--primary-brown);
+        }
     </style>
 </head>
 <body>
@@ -151,6 +300,7 @@
     <div id="settings-area">
         <div class="settings-box">
             <h4>店舗設定</h4>
+
             <div style="margin-bottom: 10px;">
                 <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
             </div>
@@ -165,12 +315,37 @@
                 <label><input type="checkbox" value="5" class="hol-cb">金</label>
                 <label><input type="checkbox" value="6" class="hol-cb">土</label>
             </div>
+
             <button class="save-btn" onclick="saveSettings()">設定を保存</button>
         </div>
 
         <div class="settings-box">
+            <h4>臨時休業日設定</h4>
+
+            <p class="note-text">
+                直近2カ月以内の臨時休業日を登録できます。<br>
+                登録した日は、お客様の予約画面で予約できない日になります。
+            </p>
+
+            <label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">休業日</label>
+            <input type="date" id="closed-date" class="full-input">
+
+            <label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">理由・メモ</label>
+            <input type="text" id="closed-reason" class="full-input" placeholder="例：研修のため / お盆休み / 店舗都合">
+
+            <button class="save-btn" id="add-closed-btn" onclick="addClosedDay()">この日を臨時休業にする</button>
+
+            <div id="closed-message" class="message"></div>
+
+            <h4 style="margin-top:20px;">登録済みの臨時休業日</h4>
+            <div id="closed-days-list" class="closed-list">読み込み中...</div>
+        </div>
+
+        <div class="settings-box">
             <h4>スタッフ管理</h4>
+
             <div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px;"></div>
+
             <div style="display: flex; gap: 5px;">
                 <input type="text" id="new-staff-name" placeholder="新しいスタッフ名" style="flex-grow: 1;">
                 <button onclick="addStaff()">追加</button>
@@ -190,19 +365,72 @@
 </div>
 
 <script>
-    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
+    const sbClient = supabase.createClient(
+        'https://cbknucemarcpbscirzyv.supabase.co',
+        'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
+    );
+
     let currentDate = new Date();
     window.currentStaffs = [];
 
-    window.onload = () => {
-        loadSettings();
-        fetchStaffs();
+    window.onload = async () => {
+        initClosedDateInput();
+        await loadSettings();
+        await fetchStaffs();
+        await fetchClosedDays();
     };
 
-    // アコーディオンの開閉
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[char]));
+    }
+
+    function toLocalDateString(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function getTodayString() {
+        return toLocalDateString(new Date());
+    }
+
+    function getTwoMonthsLaterString() {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 2);
+        return toLocalDateString(d);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        const date = new Date(Number(y), Number(m) - 1, Number(d));
+        const weeks = ['日', '月', '火', '水', '木', '金', '土'];
+        return `${Number(m)}月${Number(d)}日（${weeks[date.getDay()]}）`;
+    }
+
+    function setClosedMessage(text, type = '') {
+        const box = document.getElementById('closed-message');
+        box.className = `message ${type}`;
+        box.innerHTML = text ? escapeHtml(text) : '';
+    }
+
+    function initClosedDateInput() {
+        const dateInput = document.getElementById('closed-date');
+        dateInput.min = getTodayString();
+        dateInput.max = getTwoMonthsLaterString();
+    }
+
     function toggleSettings() {
         const area = document.getElementById('settings-area');
         const btn = document.querySelector('.toggle-btn');
+
         if (area.style.display === 'none' || area.style.display === '') {
             area.style.display = 'block';
             btn.innerText = '⚙️ 店舗設定・スタッフ管理を閉じる ▲';
@@ -213,13 +441,23 @@
     }
 
     async function loadSettings() {
-        const { data } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        const { data, error } = await sbClient
+            .from('salon_settings')
+            .select('*')
+            .eq('id', 1)
+            .single();
+
+        if (error) {
+            alert('店舗設定の取得に失敗しました: ' + error.message);
+            return;
+        }
+
         if (data) {
             document.getElementById('open-time').value = data.open_time;
             document.getElementById('close-time').value = data.close_time;
             
-            // チェックボックスに反映
             const holidays = data.regular_holidays ? data.regular_holidays.split(',') : [];
+
             document.querySelectorAll('.hol-cb').forEach(cb => {
                 cb.checked = holidays.includes(cb.value);
             });
@@ -227,62 +465,244 @@
     }
 
     async function saveSettings() {
-        // チェックされた曜日を取得してカンマ区切りに変換
         const checkedHolidays = Array.from(document.querySelectorAll('.hol-cb:checked'))
-                                     .map(cb => cb.value)
-                                     .join(',');
+            .map(cb => cb.value)
+            .join(',');
 
-        await sbClient.from('salon_settings').update({
-            open_time: document.getElementById('open-time').value,
-            close_time: document.getElementById('close-time').value,
-            regular_holidays: checkedHolidays
-        }).eq('id', 1);
+        const { error } = await sbClient
+            .from('salon_settings')
+            .update({
+                open_time: document.getElementById('open-time').value,
+                close_time: document.getElementById('close-time').value,
+                regular_holidays: checkedHolidays
+            })
+            .eq('id', 1);
         
+        if (error) {
+            alert('設定の保存に失敗しました: ' + error.message);
+            return;
+        }
+
         alert('設定を保存しました');
         fetchBookings();
     }
 
+    async function fetchClosedDays() {
+        const list = document.getElementById('closed-days-list');
+        list.innerHTML = '読み込み中...';
+
+        const today = getTodayString();
+        const twoMonthsLater = getTwoMonthsLaterString();
+
+        const { data, error } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .gte('closed_date', today)
+            .lte('closed_date', twoMonthsLater)
+            .order('closed_date', { ascending: true });
+
+        if (error) {
+            list.innerHTML = `
+                <div class="closed-day-box">
+                    臨時休業日の取得に失敗しました。<br>
+                    STEP6-1のSQLがまだの場合は、先にSQLを実行してください。
+                </div>
+            `;
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            list.innerHTML = `
+                <div class="closed-day-box">
+                    現在、直近2カ月以内の臨時休業日は登録されていません。
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = '';
+
+        data.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'closed-item';
+
+            div.innerHTML = `
+                <div>
+                    <div class="closed-date">${escapeHtml(formatDate(item.closed_date))}</div>
+                    <div class="closed-reason">${escapeHtml(item.reason || '理由なし')}</div>
+                </div>
+                <button class="delete-btn" onclick="deleteClosedDay(${item.id})">削除</button>
+            `;
+
+            list.appendChild(div);
+        });
+    }
+
+    async function addClosedDay() {
+        const addBtn = document.getElementById('add-closed-btn');
+        const closedDate = document.getElementById('closed-date').value;
+        const reason = document.getElementById('closed-reason').value.trim();
+
+        setClosedMessage('');
+
+        if (!closedDate) {
+            alert('休業日を選択してください。');
+            return;
+        }
+
+        const today = getTodayString();
+        const twoMonthsLater = getTwoMonthsLaterString();
+
+        if (closedDate < today || closedDate > twoMonthsLater) {
+            alert('登録できるのは今日から直近2カ月以内の日付です。');
+            return;
+        }
+
+        addBtn.disabled = true;
+        addBtn.innerText = '登録中...';
+
+        const { error } = await sbClient
+            .from('salon_closed_days')
+            .insert({
+                closed_date: closedDate,
+                reason: reason
+            });
+
+        addBtn.disabled = false;
+        addBtn.innerText = 'この日を臨時休業にする';
+
+        if (error) {
+            if (error.message && error.message.includes('duplicate key')) {
+                setClosedMessage('この日はすでに臨時休業日として登録されています。', 'error');
+            } else {
+                setClosedMessage('登録に失敗しました: ' + error.message, 'error');
+            }
+            return;
+        }
+
+        document.getElementById('closed-date').value = '';
+        document.getElementById('closed-reason').value = '';
+
+        setClosedMessage('臨時休業日を登録しました。', 'success');
+
+        await fetchClosedDays();
+        await fetchBookings();
+    }
+
+    async function deleteClosedDay(id) {
+        if (!confirm('この臨時休業日を削除しますか？')) return;
+
+        const { error } = await sbClient
+            .from('salon_closed_days')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert('削除に失敗しました: ' + error.message);
+            return;
+        }
+
+        setClosedMessage('臨時休業日を削除しました。', 'success');
+
+        await fetchClosedDays();
+        await fetchBookings();
+    }
+
     async function fetchStaffs() {
-        const { data } = await sbClient.from('staffs').select('*');
+        const { data, error } = await sbClient
+            .from('staffs')
+            .select('*')
+            .order('id', { ascending: true });
+
+        if (error) {
+            alert('スタッフ情報の取得に失敗しました: ' + error.message);
+            return;
+        }
+
         window.currentStaffs = data || [];
+
         document.getElementById('staff-list-grid').innerHTML = window.currentStaffs.map(s => `
-            <div class="staff-tag">${s.name}<button onclick="deleteStaff(${s.id})">✕</button></div>
+            <div class="staff-tag">
+                ${escapeHtml(s.name)}
+                <button onclick="deleteStaff(${s.id})">✕</button>
+            </div>
         `).join('');
-        fetchBookings(); // スタッフ数が変わると空き枠計算が変わるため再取得
+
+        fetchBookings();
     }
 
     async function addStaff() {
         const name = document.getElementById('new-staff-name').value.trim();
+
         if (!name) return;
-        await sbClient.from('staffs').insert({ name: name });
+
+        const { error } = await sbClient
+            .from('staffs')
+            .insert({ name: name });
+
+        if (error) {
+            alert('スタッフ追加に失敗しました: ' + error.message);
+            return;
+        }
+
         document.getElementById('new-staff-name').value = '';
         fetchStaffs();
     }
 
     async function deleteStaff(id) {
-        if(confirm('スタッフを削除しますか？')) { 
-            await sbClient.from('staffs').delete().eq('id', id); 
-            fetchStaffs(); 
+        if (!confirm('スタッフを削除しますか？')) return;
+
+        const { error } = await sbClient
+            .from('staffs')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert('スタッフ削除に失敗しました: ' + error.message);
+            return;
         }
+
+        fetchStaffs();
     }
 
     async function addBooking(time) {
         const name = prompt("お客様名");
         if (!name) return;
+
         const memo = prompt("メモ（任意）") || "";
         
-        const staffOptions = window.currentStaffs.map((s, index) => `${index + 1}: ${s.name}`).join('\n');
+        const staffOptions = window.currentStaffs
+            .map((s, index) => `${index + 1}: ${s.name}`)
+            .join('\n');
+
         const staffIndex = prompt(`担当スタッフ番号を入力してください:\n0: 指定なし(お任せ)\n${staffOptions}`);
         
         let selectedStaff = "お任せ";
-        if (staffIndex !== null && staffIndex !== "0" && window.currentStaffs[parseInt(staffIndex) - 1]) {
+
+        if (
+            staffIndex !== null &&
+            staffIndex !== "0" &&
+            window.currentStaffs[parseInt(staffIndex) - 1]
+        ) {
             selectedStaff = window.currentStaffs[parseInt(staffIndex) - 1].name;
         }
         
-        const dateStr = currentDate.toISOString().split('T')[0];
-        await sbClient.from('bookings').insert({ 
-            customer_name: name, memo: memo, staff_name: selectedStaff, start_datetime: `${dateStr}T${time}:00` 
-        });
+        const dateStr = toLocalDateString(currentDate);
+
+        const { error } = await sbClient
+            .from('bookings')
+            .insert({ 
+                customer_name: name,
+                memo: memo,
+                staff_name: selectedStaff,
+                start_datetime: `${dateStr}T${time}:00`
+            });
+
+        if (error) {
+            alert('予約追加に失敗しました: ' + error.message);
+            return;
+        }
+
         fetchBookings();
     }
 
@@ -292,56 +712,100 @@
     }
 
     async function fetchBookings() {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        
-        // 曜日テキストを取得
+        const dateStr = toLocalDateString(currentDate);
         const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
         const dayText = dayNames[currentDate.getDay()];
+
         document.getElementById('display-date').innerText = `${dateStr} (${dayText})`;
 
-        const { data: set } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
-        const { data: bookings } = await sbClient.from('bookings').select('*').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`).order('start_datetime');
-        
+        const { data: set, error: settingError } = await sbClient
+            .from('salon_settings')
+            .select('*')
+            .eq('id', 1)
+            .single();
+
+        if (settingError || !set) {
+            document.getElementById('daily-summary').innerText = '店舗設定の取得に失敗しました。';
+            document.getElementById('booking-list').innerHTML = '';
+            return;
+        }
+
+        const { data: bookings, error: bookingError } = await sbClient
+            .from('bookings')
+            .select('*')
+            .gte('start_datetime', `${dateStr}T00:00:00`)
+            .lte('start_datetime', `${dateStr}T23:59:59`)
+            .order('start_datetime');
+
+        if (bookingError) {
+            document.getElementById('daily-summary').innerText = '予約情報の取得に失敗しました。';
+            document.getElementById('booking-list').innerHTML = '';
+            return;
+        }
+
+        const { data: closedRows } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .eq('closed_date', dateStr)
+            .limit(1);
+
+        const closedDay = closedRows && closedRows.length > 0 ? closedRows[0] : null;
+
+        const holidays = set.regular_holidays ? set.regular_holidays.split(',') : [];
+        const isRegularHoliday = holidays.includes(String(currentDate.getDay()));
+
+        if (closedDay || isRegularHoliday) {
+            renderClosedDayView(bookings || [], closedDay, isRegularHoliday);
+            return;
+        }
+
         const staffCount = window.currentStaffs.length;
+        const capacity = staffCount > 0 ? staffCount : 1;
         const startH = parseInt(set.open_time.split(':')[0]);
         const endH = parseInt(set.close_time.split(':')[0]);
         
         let totalSlots = 0;
         let html = '';
 
-        for(let h=startH; h<endH; h++) {
+        for (let h = startH; h < endH; h++) {
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const timeBookings = bookings?.filter(b => b.start_datetime.substring(11, 16) === t) || [];
                 const bookedCount = timeBookings.length;
                 
-                // サマリー用計算
-                totalSlots += staffCount > 0 ? staffCount : 1; 
+                totalSlots += capacity;
                 
-                html += `<div class="booking-row">
-                            <span class="time-label">${t}</span>
-                            <div class="booking-content">`;
+                html += `
+                    <div class="booking-row">
+                        <span class="time-label">${t}</span>
+                        <div class="booking-content">
+                `;
                 
                 if (bookedCount > 0) {
                     timeBookings.forEach(b => {
-                        const memoHtml = b.memo ? `<span class="memo-text">📝 ${b.memo}</span>` : '';
-                        html += `<div class="booked-item">
-                                    <div>
-                                        <strong>${b.customer_name}</strong> [${b.staff_name}]
-                                        ${memoHtml}
-                                    </div>
-                                    <button class="delete-btn" onclick="deleteBooking(${b.id})">削除</button>
-                                 </div>`;
+                        const memoHtml = b.memo
+                            ? `<span class="memo-text">📝 ${escapeHtml(b.memo)}</span>`
+                            : '';
+
+                        html += `
+                            <div class="booked-item">
+                                <div>
+                                    <strong>${escapeHtml(b.customer_name)}</strong> [${escapeHtml(b.staff_name)}]
+                                    ${memoHtml}
+                                </div>
+                                <button class="delete-btn" onclick="deleteBooking(${b.id})">削除</button>
+                            </div>
+                        `;
                     });
                 }
                 
-                if (bookedCount < staffCount || staffCount === 0) {
+                if (bookedCount < capacity) {
                     html += `<div class="empty-slot">〇 空きがあります</div>`;
                 }
+
                 html += `</div>`;
 
-                // ボタン制御
-                if (bookedCount >= staffCount && staffCount > 0) {
+                if (bookedCount >= capacity) {
                     html += `<button disabled style="margin-left:10px;">満席</button>`;
                 } else {
                     html += `<button onclick="addBooking('${t}')" style="margin-left:10px;">＋ 予約</button>`;
@@ -351,19 +815,68 @@
             });
         }
         
-        // サマリーの更新
         const totalBooked = bookings ? bookings.length : 0;
         const remaining = totalSlots > 0 ? totalSlots - totalBooked : 0;
-        document.getElementById('daily-summary').innerText = `本日の予約：${totalBooked}件 / 残り空き枠：${remaining}枠`;
+
+        document.getElementById('daily-summary').innerText =
+            `本日の予約：${totalBooked}件 / 残り空き枠：${remaining}枠`;
         
         document.getElementById('booking-list').innerHTML = html;
     }
 
+    function renderClosedDayView(bookings, closedDay, isRegularHoliday) {
+        const reasonText = closedDay
+            ? `臨時休業日：${closedDay.reason || '理由なし'}`
+            : '定休日です';
+
+        document.getElementById('daily-summary').innerText = reasonText;
+
+        let html = `
+            <div class="closed-day-box">
+                <strong>${escapeHtml(reasonText)}</strong><br>
+                この日は予約枠を表示しません。
+            </div>
+        `;
+
+        if (bookings.length > 0) {
+            html += `<h4 style="margin-top:20px;">この日に入っている予約</h4>`;
+
+            bookings.forEach(b => {
+                const time = b.start_datetime.substring(11, 16);
+                const memoHtml = b.memo
+                    ? `<span class="memo-text">📝 ${escapeHtml(b.memo)}</span>`
+                    : '';
+
+                html += `
+                    <div class="booked-item">
+                        <div>
+                            <strong>${escapeHtml(time)}</strong>　
+                            ${escapeHtml(b.customer_name)} [${escapeHtml(b.staff_name)}]
+                            ${memoHtml}
+                        </div>
+                        <button class="delete-btn" onclick="deleteBooking(${b.id})">削除</button>
+                    </div>
+                `;
+            });
+        }
+
+        document.getElementById('booking-list').innerHTML = html;
+    }
+
     async function deleteBooking(id) { 
-        if(confirm('この予約を削除しますか？')) { 
-            await sbClient.from('bookings').delete().eq('id', id); 
-            fetchBookings(); 
-        } 
+        if (!confirm('この予約を削除しますか？')) return;
+
+        const { error } = await sbClient
+            .from('bookings')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert('予約削除に失敗しました: ' + error.message);
+            return;
+        }
+
+        fetchBookings();
     }
 </script>
 </body>
