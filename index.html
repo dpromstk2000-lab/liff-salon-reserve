@@ -27,6 +27,16 @@
         .complete-title { color: #8e7f7f; font-weight: bold; margin-bottom: 6px; }
         .danger-note { color:red; font-size:0.8em; margin-bottom:0; }
         .small-button { width:auto; margin-top:10px; padding:8px 12px; }
+        .closed-message {
+            grid-column: 1 / -1;
+            background: #fff7f4;
+            border: 1px solid #e8d2c8;
+            color: #6d4c41;
+            padding: 14px;
+            border-radius: 10px;
+            line-height: 1.7;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -77,6 +87,7 @@
 
     let lineUserId = "";
     let lineDisplayName = "";
+    let allStaffs = [];
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, char => ({
@@ -93,6 +104,12 @@
         const m = String(date.getMonth() + 1).padStart(2, '0');
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
+    }
+
+    function getTwoMonthsLaterString() {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 2);
+        return toLocalDateString(d);
     }
 
     function toLocalDateTimeString(date) {
@@ -151,7 +168,10 @@
 
     async function initLiff() {
         await liff.init({ liffId: "2010243135-H06VsAHm" });
-        document.getElementById('select_date').min = toLocalDateString(new Date());
+
+        const dateInput = document.getElementById('select_date');
+        dateInput.min = toLocalDateString(new Date());
+        dateInput.max = getTwoMonthsLaterString();
 
         if (liff.isLoggedIn()) {
             const p = await liff.getProfile();
@@ -160,24 +180,34 @@
             document.getElementById('user-display').innerText = p.displayName + " 様";
 
             loadCustomerNameFromBrowser();
-            fetchBookings();
-            fetchStaffs();
+            await fetchBookings();
+            await fetchStaffs();
         } else {
             liff.login();
         }
     }
 
     async function fetchStaffs() {
-        const { data, error } = await sbClient.from('staffs').select('*');
+        const { data, error } = await sbClient
+            .from('staffs')
+            .select('*')
+            .order('id', { ascending: true });
 
         if (error) {
             alert('スタッフ情報の取得に失敗しました: ' + error.message);
             return;
         }
 
+        allStaffs = data || [];
+
         const select = document.getElementById('select_staff');
-        data?.forEach(s => {
-            select.innerHTML += `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`;
+        select.innerHTML = '<option value="お任せ">お任せ（指定なし）</option>';
+
+        allStaffs.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.name;
+            option.textContent = s.name;
+            select.appendChild(option);
         });
     }
 
@@ -198,6 +228,15 @@
 
         saveBtn.disabled = true;
         saveBtn.innerText = '確認中...';
+
+        const selectedDate = time.split('T')[0];
+
+        const canBook = await checkCanBookDate(selectedDate);
+        if (!canBook.ok) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = '予約を確定';
+            return alert(canBook.message);
+        }
 
         const nowStr = toLocalDateTimeString(new Date());
 
@@ -253,6 +292,41 @@
         clearForm(false);
         await fetchBookings();
         await renderTimeSlots();
+    }
+
+    async function checkCanBookDate(dateStr) {
+        const { data: setting, error: settingError } = await sbClient
+            .from('salon_settings')
+            .select('*')
+            .eq('id', 1)
+            .single();
+
+        if (settingError || !setting) {
+            return { ok: false, message: '営業時間の取得に失敗しました。' };
+        }
+
+        const { data: closedRows, error: closedError } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .eq('closed_date', dateStr)
+            .limit(1);
+
+        if (closedError) {
+            return { ok: false, message: '臨時休業日の確認に失敗しました。STEP6-1のSQLが実行されているか確認してください。' };
+        }
+
+        if (closedRows && closedRows.length > 0) {
+            const reason = closedRows[0].reason ? `\n理由：${closedRows[0].reason}` : '';
+            return { ok: false, message: `この日は臨時休業です。${reason}` };
+        }
+
+        const dayOfWeek = new Date(dateStr).getDay();
+
+        if (setting.regular_holidays?.split(',').includes(dayOfWeek.toString())) {
+            return { ok: false, message: 'この日は定休日です。' };
+        }
+
+        return { ok: true, message: '' };
     }
 
     function showCompleteMessage(booking) {
@@ -402,14 +476,44 @@
             .single();
 
         if (settingError || !setting) {
-            container.innerHTML = '<p class="help-text">営業時間の取得に失敗しました。</p>';
+            container.innerHTML = '<div class="closed-message">営業時間の取得に失敗しました。</div>';
+            return;
+        }
+
+        const { data: closedRows, error: closedError } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .eq('closed_date', dateStr)
+            .limit(1);
+
+        if (closedError) {
+            container.innerHTML = `
+                <div class="closed-message">
+                    臨時休業日の確認に失敗しました。<br>
+                    先にSTEP6-1のSQLが実行されているか確認してください。
+                </div>
+            `;
+            return;
+        }
+
+        if (closedRows && closedRows.length > 0) {
+            const reason = closedRows[0].reason
+                ? `<br>理由：${escapeHtml(closedRows[0].reason)}`
+                : '';
+
+            container.innerHTML = `
+                <div class="closed-message">
+                    この日は臨時休業です。${reason}<br>
+                    別の日を選択してください。
+                </div>
+            `;
             return;
         }
 
         const dayOfWeek = new Date(dateStr).getDay();
 
         if (setting.regular_holidays?.split(',').includes(dayOfWeek.toString())) {
-            container.innerHTML = '<p class="help-text">この日は定休日です。</p>';
+            container.innerHTML = '<div class="closed-message">この日は定休日です。<br>別の日を選択してください。</div>';
             return;
         }
 
@@ -417,7 +521,7 @@
         const endH = parseInt(setting.close_time.split(':')[0]);
 
         let query = sbClient.from('bookings')
-            .select('start_datetime')
+            .select('*')
             .gte('start_datetime', `${dateStr}T00:00:00`)
             .lte('start_datetime', `${dateStr}T23:59:59`);
 
@@ -428,16 +532,25 @@
         const { data, error } = await query;
 
         if (error) {
-            container.innerHTML = '<p class="help-text">予約枠の取得に失敗しました。</p>';
+            container.innerHTML = '<div class="closed-message">予約枠の取得に失敗しました。</div>';
             return;
         }
 
-        const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
+        const staffCapacity = allStaffs.length > 0 ? allStaffs.length : 1;
+        const bookings = data || [];
         
         for (let h = startH; h < endH; h++) {
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const isBooked = booked.includes(t);
+
+                let isBooked = false;
+
+                if (staffName === 'お任せ') {
+                    const sameTimeBookings = bookings.filter(b => b.start_datetime.substring(11, 16) === t);
+                    isBooked = sameTimeBookings.length >= staffCapacity;
+                } else {
+                    isBooked = bookings.some(b => b.start_datetime.substring(11, 16) === t);
+                }
 
                 const btn = document.createElement('button');
                 btn.innerText = isBooked ? '✕' : t;
