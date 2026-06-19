@@ -2,21 +2,37 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>スタッフ予約確認</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fcfbf9; }
-        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .booking-item { border-bottom: 1px solid #eee; padding: 15px 0; }
-        .date-nav { display:flex; justify-content:space-between; align-items:center; margin: 20px 0; }
-        select { width: 100%; padding: 10px; margin: 10px 0; }
-        button { padding: 6px 12px; border: none; border-radius: 4px; background: #8e7f7f; color: white; }
+        .container { max-width: 480px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .booking-item { border-bottom: 1px solid #eee; padding: 15px 0; line-height: 1.6; }
+        .booking-item:last-child { border-bottom: none; }
+        .date-nav { display:flex; justify-content:space-between; align-items:center; gap: 8px; margin: 15px 0; }
+        select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { padding: 8px 12px; border: none; border-radius: 6px; background: #8e7f7f; color: white; cursor: pointer; }
+        .sub-button { background:#aaa; width:100%; margin: 6px 0 14px; }
+        .section-title { margin-top: 24px; margin-bottom: 10px; font-size: 1.05em; }
+        .summary-card { background:#fffaf8; border:1px solid #eee; border-radius:12px; padding:14px; margin-bottom:14px; }
+        .empty-text { color:#777; font-size:0.9em; line-height:1.6; }
+        .memo { color:#666; background:#f9f9f9; padding:5px; border-radius:4px; display:block; margin-top:5px; font-size:0.85em; }
+        .time { font-weight:bold; font-size:1.05em; }
+        .staff-name { color:#8e7f7f; font-size:0.9em; }
     </style>
 </head>
 <body>
 <div class="container">
     <h3>スタッフ予約確認</h3>
+
     <div id="content" style="display:none;">
+        <div class="summary-card">
+            <div class="section-title" style="margin-top:0;">本日の予約一覧</div>
+            <div id="today-booking-list">読み込み中...</div>
+        </div>
+
+        <div class="section-title">担当者別に確認</div>
         <label>担当者を選択</label>
         <select id="staff-selector" onchange="fetchStaffBookings()">
             <option value="">-- 名前を選択 --</option>
@@ -27,6 +43,7 @@
             <h4 id="display-date"></h4>
             <button onclick="changeDate(1)">翌日 →</button>
         </div>
+        <button class="sub-button" onclick="goToday()">今日に戻る</button>
         
         <div id="staff-booking-list"></div>
     </div>
@@ -34,20 +51,43 @@
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
-    const STAFF_PASSWORD = "2026"; 
+    const STAFF_PASSWORD = "2026";
     let currentDate = new Date();
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[char]));
+    }
+
+    function toLocalDateString(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function formatDateLabel(dateStr) {
+        const [y, m, d] = dateStr.split('-');
+        return `${Number(m)}月${Number(d)}日`;
+    }
 
     async function init() {
         const pass = prompt("パスワードを入力");
         if (pass !== STAFF_PASSWORD) return alert("パスワードが違います");
+
         document.getElementById('content').style.display = 'block';
 
-        const { data } = await sbClient.from('staffs').select('*');
+        const { data, error } = await sbClient.from('staffs').select('*');
+        if (error) return alert('スタッフ情報の取得に失敗しました: ' + error.message);
+
         const selector = document.getElementById('staff-selector');
         data?.forEach(s => {
-            selector.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+            selector.innerHTML += `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`;
         });
+
         updateDateDisplay();
+        fetchTodayBookings();
     }
 
     function changeDate(d) {
@@ -56,40 +96,85 @@
         fetchStaffBookings();
     }
 
+    function goToday() {
+        currentDate = new Date();
+        updateDateDisplay();
+        fetchStaffBookings();
+        fetchTodayBookings();
+    }
+
     function updateDateDisplay() {
-        document.getElementById('display-date').innerText = currentDate.toISOString().split('T')[0];
+        document.getElementById('display-date').innerText = toLocalDateString(currentDate);
+    }
+
+    function createBookingHtml(item, showStaffName = true) {
+        return `
+            <div class="booking-item">
+                <div class="time">${escapeHtml(item.start_datetime.substring(11, 16))}</div>
+                <div>お客様: ${escapeHtml(item.customer_name)}</div>
+                ${showStaffName ? `<div class="staff-name">担当: ${escapeHtml(item.staff_name)}</div>` : ''}
+                ${item.memo ? `<span class="memo">メモ: ${escapeHtml(item.memo)}</span>` : ''}
+            </div>
+        `;
+    }
+
+    async function fetchTodayBookings() {
+        const list = document.getElementById('today-booking-list');
+        const dateStr = toLocalDateString(new Date());
+        list.innerHTML = '読み込み中...';
+
+        const { data, error } = await sbClient.from('bookings')
+            .select('*')
+            .gte('start_datetime', `${dateStr}T00:00:00`)
+            .lte('start_datetime', `${dateStr}T23:59:59`)
+            .order('start_datetime');
+
+        if (error) {
+            list.innerHTML = '<p class="empty-text">本日の予約取得に失敗しました。</p>';
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            list.innerHTML = '<p class="empty-text">本日の予約はありません。</p>';
+            return;
+        }
+
+        list.innerHTML = `<p class="empty-text">${formatDateLabel(dateStr)}の予約：${data.length}件</p>`;
+        data.forEach(item => list.innerHTML += createBookingHtml(item, true));
     }
 
     async function fetchStaffBookings() {
         const staffName = document.getElementById('staff-selector').value;
         const list = document.getElementById('staff-booking-list');
-        if (!staffName) return list.innerHTML = '';
+        if (!staffName) {
+            list.innerHTML = '<p class="empty-text">担当者を選択すると、その日の予約が表示されます。</p>';
+            return;
+        }
         
-        const dateStr = currentDate.toISOString().split('T')[0];
+        const dateStr = toLocalDateString(currentDate);
         list.innerHTML = '読み込み中...';
         
-        // その日の、そのスタッフの予約のみを取得
-        const { data } = await sbClient.from('bookings')
+        const { data, error } = await sbClient.from('bookings')
             .select('*')
             .eq('staff_name', staffName)
             .gte('start_datetime', `${dateStr}T00:00:00`)
             .lte('start_datetime', `${dateStr}T23:59:59`)
             .order('start_datetime');
 
-        list.innerHTML = '';
-        if (!data || data.length === 0) return list.innerHTML = '<p>この日の予約はありません。</p>';
+        if (error) {
+            list.innerHTML = '<p class="empty-text">予約情報の取得に失敗しました。</p>';
+            return;
+        }
 
-        data.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'booking-item';
-            div.innerHTML = `
-                <strong>${item.start_datetime.substring(11, 16)}</strong><br>
-                お客様: ${item.customer_name}<br>
-                ${item.memo ? `<small style="color:#666;">メモ: ${item.memo}</small>` : ''}
-            `;
-            list.append(div);
-        });
+        if (!data || data.length === 0) {
+            list.innerHTML = `<p class="empty-text">${formatDateLabel(dateStr)}の${escapeHtml(staffName)}さんの予約はありません。</p>`;
+            return;
+        }
+
+        list.innerHTML = `<p class="empty-text">${formatDateLabel(dateStr)} / ${escapeHtml(staffName)}さん：${data.length}件</p>`;
+        data.forEach(item => list.innerHTML += createBookingHtml(item, false));
     }
+
     init();
 </script>
 </body>
