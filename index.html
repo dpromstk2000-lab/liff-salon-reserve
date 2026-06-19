@@ -11,23 +11,37 @@
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .input-box { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #8e7f7f; color: white; width: 100%; margin-bottom: 5px; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
         #time-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         .selected-slot { background: #d9a0a0 !important; }
-        .booking-item { border-bottom: 1px solid #eee; padding: 15px 0; }
         .memo-text { font-size: 0.85em; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; display: block; margin-top: 5px; }
-        .status-card { border: 1px solid #eee; border-radius: 12px; padding: 15px; margin-bottom: 12px; }
+        .section-title { margin-top: 28px; margin-bottom: 12px; font-size: 1.1em; }
+        .status-card { border: 1px solid #eee; border-radius: 12px; padding: 15px; margin-bottom: 12px; line-height: 1.6; }
         .next-booking { background: #fffaf8; }
         .past-booking { background: #f8f7f4; }
+        .empty-card { background: #fafafa; color: #777; }
         .status-label { font-size: 0.8em; color: #8e7f7f; font-weight: bold; margin-bottom: 6px; }
         .status-date { font-size: 1.1em; margin-bottom: 6px; }
-        .empty-text { color: #777; font-size: 0.9em; line-height: 1.6; }
+        .help-text { color: #777; font-size: 0.85em; line-height: 1.6; margin-top: 0; }
+        .complete-card { display:none; border: 1px solid #e8d2d2; background: #fff7f7; border-radius: 12px; padding: 15px; margin: 18px 0; line-height: 1.7; }
+        .complete-title { color: #8e7f7f; font-weight: bold; margin-bottom: 6px; }
+        .danger-note { color:red; font-size:0.8em; margin-bottom:0; }
+        .small-button { width:auto; margin-top:10px; padding:8px 12px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2 id="user-display">読み込み中...</h2>
-    
+
+    <div id="complete-message" class="complete-card"></div>
+
+    <h3 class="section-title">ご予約状況</h3>
+    <div id="booking-list">読み込み中...</div>
+
+    <h3 class="section-title">新しく予約する</h3>
+    <p class="help-text">次回予約がある場合は、上の「次回のご予約」をご確認のうえ、ご予約ください。</p>
+
     <label>お客様名（フルネーム）</label>
     <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
     
@@ -40,88 +54,165 @@
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
     
     <label>備考（任意）</label>
-    <input type="text" id="customer_memo" class="input-box" placeholder="ご要望など">
+    <input type="text" id="customer_memo" class="input-box" placeholder="例：前回と同じ内容でお願いします">
     
     <div id="time-slots"></div>
     <input type="hidden" id="selected_datetime">
     
     <button id="save_btn" onclick="saveBooking()" style="margin-top:20px;">予約を確定</button>
-    <button onclick="location.reload()" style="background:#aaa;">クリア</button>
-    
-    <h3 style="margin-top:30px;">ご予約状況</h3>
-    <div id="booking-list"></div>
+    <button onclick="clearForm()" style="background:#aaa;">入力内容をクリア</button>
 </div>
 
 <script>
     const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
     let lineUserId = "";
 
-    async function initLiff() {
-        await liff.init({ liffId: "2010243135-H06VsAHm" });
-        document.getElementById('select_date').min = new Date().toISOString().split('T')[0];
-        if (liff.isLoggedIn()) {
-            const p = await liff.getProfile();
-            lineUserId = p.userId;
-            document.getElementById('user-display').innerText = p.displayName + " 様";
-            fetchBookings();
-            fetchStaffs();
-        } else { liff.login(); }
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[char]));
     }
 
-    async function fetchStaffs() {
-        const { data } = await sbClient.from('staffs').select('*');
-        const select = document.getElementById('select_staff');
-        data?.forEach(s => {
-            select.innerHTML += `<option value="${s.name}">${s.name}</option>`;
-        });
-    }
-
-    async function saveBooking() {
-        const name = document.getElementById('customer_name').value.trim();
-        const time = document.getElementById('selected_datetime').value;
-        const staff = document.getElementById('select_staff').value;
-        
-        if (!name.includes(' ') && !name.includes('　')) return alert('フルネーム（苗字と名前の間にスペース）で入力してください。');
-        if (!time) return alert('時間を選択してください');
-        
-        const { error } = await sbClient.from('bookings').insert({ 
-            customer_name: name, memo: document.getElementById('customer_memo').value.trim(), 
-            start_datetime: time, staff_name: staff, line_user_id: lineUserId 
-        });
-        if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); location.reload(); }
+    function toLocalDateString(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
 
     function toLocalDateTimeString(date) {
         const y = date.getFullYear();
-        const mo = String(date.getMonth() + 1).padStart(2, '0');
+        const m = String(date.getMonth() + 1).padStart(2, '0');
         const d = String(date.getDate()).padStart(2, '0');
         const h = String(date.getHours()).padStart(2, '0');
         const mi = String(date.getMinutes()).padStart(2, '0');
         const s = String(date.getSeconds()).padStart(2, '0');
-        return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+        return `${y}-${m}-${d}T${h}:${mi}:${s}`;
     }
 
     function formatBookingDate(value) {
-        return value.replace('T', ' ').substring(0, 16);
+        if (!value) return '';
+        const [datePart, timePart = ''] = value.split('T');
+        const [y, m, d] = datePart.split('-');
+        const time = timePart.substring(0, 5);
+        return `${Number(m)}月${Number(d)}日 ${time}`;
     }
 
-    function createBookingCard(item, type) {
+    function saveCustomerNameToBrowser(name) {
+        if (!lineUserId || !name) return;
+        localStorage.setItem(`salon_customer_name_${lineUserId}`, name);
+    }
+
+    function loadCustomerNameFromBrowser() {
+        if (!lineUserId) return;
+        const savedName = localStorage.getItem(`salon_customer_name_${lineUserId}`);
+        if (savedName && !document.getElementById('customer_name').value) {
+            document.getElementById('customer_name').value = savedName;
+        }
+    }
+
+    async function initLiff() {
+        await liff.init({ liffId: "2010243135-H06VsAHm" });
+        document.getElementById('select_date').min = toLocalDateString(new Date());
+
+        if (liff.isLoggedIn()) {
+            const p = await liff.getProfile();
+            lineUserId = p.userId;
+            document.getElementById('user-display').innerText = p.displayName + " 様";
+            loadCustomerNameFromBrowser();
+            fetchBookings();
+            fetchStaffs();
+        } else {
+            liff.login();
+        }
+    }
+
+    async function fetchStaffs() {
+        const { data, error } = await sbClient.from('staffs').select('*');
+        if (error) return alert('スタッフ情報の取得に失敗しました: ' + error.message);
+
+        const select = document.getElementById('select_staff');
+        data?.forEach(s => {
+            select.innerHTML += `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`;
+        });
+    }
+
+    async function saveBooking() {
+        const saveBtn = document.getElementById('save_btn');
+        const name = document.getElementById('customer_name').value.trim();
+        const time = document.getElementById('selected_datetime').value;
+        const staff = document.getElementById('select_staff').value;
+        const memo = document.getElementById('customer_memo').value.trim();
+        
+        if (!name.includes(' ') && !name.includes('　')) return alert('フルネーム（苗字と名前の間にスペース）で入力してください。');
+        if (!time) return alert('時間を選択してください');
+
+        const booking = {
+            customer_name: name,
+            memo: memo,
+            start_datetime: time,
+            staff_name: staff,
+            line_user_id: lineUserId
+        };
+
+        saveBtn.disabled = true;
+        saveBtn.innerText = '予約中...';
+        
+        const { error } = await sbClient.from('bookings').insert(booking);
+
+        saveBtn.disabled = false;
+        saveBtn.innerText = '予約を確定';
+
+        if (error) {
+            alert('予約失敗: ' + error.message);
+            return;
+        }
+
+        saveCustomerNameToBrowser(name);
+        showCompleteMessage(booking);
+        clearForm(false);
+        await fetchBookings();
+        await renderTimeSlots();
+    }
+
+    function showCompleteMessage(booking) {
+        const box = document.getElementById('complete-message');
+        box.innerHTML = `
+            <div class="complete-title">ご予約が完了しました</div>
+            <div><strong>${escapeHtml(formatBookingDate(booking.start_datetime))}</strong></div>
+            <div>担当：${escapeHtml(booking.staff_name)}</div>
+            <div style="font-size:0.9em; color:#777; margin-top:6px;">ご来店をお待ちしております。</div>
+        `;
+        box.style.display = 'block';
+        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function createStatusCard(item, type) {
+        if (!item) {
+            const empty = document.createElement('div');
+            empty.className = 'status-card empty-card';
+            empty.innerHTML = type === 'next'
+                ? `<div class="status-label">次回のご予約</div><div>現在、次回予約はありません。</div>`
+                : `<div class="status-label">前回の予約日</div><div>前回予約はまだありません。</div>`;
+            return empty;
+        }
+
         const now = new Date();
         const bookingDate = new Date(item.start_datetime);
         const canCancel = type === 'next' && (bookingDate - now) / (1000 * 60 * 60 * 24) > 1;
 
         const div = document.createElement('div');
-        div.className = `booking-item status-card ${type === 'next' ? 'next-booking' : 'past-booking'}`;
+        div.className = `status-card ${type === 'next' ? 'next-booking' : 'past-booking'}`;
         div.innerHTML = `
             <div class="status-label">${type === 'next' ? '次回のご予約' : '前回の予約日'}</div>
-            <div class="status-date"><strong>${formatBookingDate(item.start_datetime)}</strong></div>
-            <div>${item.customer_name} [担当: ${item.staff_name}]</div>
-            ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}
+            <div class="status-date"><strong>${escapeHtml(formatBookingDate(item.start_datetime))}</strong></div>
+            <div>${escapeHtml(item.customer_name)} [担当: ${escapeHtml(item.staff_name)}]</div>
+            ${item.memo ? `<span class="memo-text">メモ: ${escapeHtml(item.memo)}</span>` : ''}
             ${type === 'next'
                 ? (canCancel
-                    ? `<button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">予約を削除</button>`
-                    : '<p style="color:red; font-size:0.8em;">※前日以降の変更は電話へ</p>')
-                : '<p style="color:#777; font-size:0.8em; margin-bottom:0;">前回のご来店記録です</p>'
+                    ? `<button onclick="deleteBooking(${item.id})" class="small-button" style="background:#d9a0a0;">予約を削除</button>`
+                    : '<p class="danger-note">※前日以降の変更・キャンセルはLINEまたはお電話でご連絡ください。</p>')
+                : '<p style="color:#777; font-size:0.8em; margin-bottom:0;">前回のご来店記録です。</p>'
             }
         `;
         return div;
@@ -151,44 +242,77 @@
         list.innerHTML = '';
 
         if (nextResult.error || lastResult.error) {
-            list.innerHTML = '<p class="empty-text">予約情報の取得に失敗しました。</p>';
+            list.innerHTML = '<p class="help-text">予約情報の取得に失敗しました。</p>';
             return;
         }
 
-        const nextBooking = nextResult.data?.[0];
-        const lastBooking = lastResult.data?.[0];
+        const nextBooking = nextResult.data?.[0] || null;
+        const lastBooking = lastResult.data?.[0] || null;
 
-        if (!nextBooking && !lastBooking) {
-            list.innerHTML = '<p class="empty-text">現在、表示できる予約はありません。</p>';
-            return;
+        const nameSource = nextBooking || lastBooking;
+        if (nameSource?.customer_name && !document.getElementById('customer_name').value) {
+            document.getElementById('customer_name').value = nameSource.customer_name;
+            saveCustomerNameToBrowser(nameSource.customer_name);
         }
 
-        if (nextBooking) list.append(createBookingCard(nextBooking, 'next'));
-        if (lastBooking) list.append(createBookingCard(lastBooking, 'past'));
+        list.append(createStatusCard(nextBooking, 'next'));
+        list.append(createStatusCard(lastBooking, 'past'));
     }
 
-    async function deleteBooking(id) { if(!confirm('削除しますか？')) return; await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); }
+    async function deleteBooking(id) {
+        if (!confirm('予約を削除しますか？')) return;
+        const { error } = await sbClient.from('bookings').delete().eq('id', id);
+        if (error) return alert('削除に失敗しました: ' + error.message);
+        await fetchBookings();
+        await renderTimeSlots();
+    }
+
+    function clearForm(hideComplete = true) {
+        document.getElementById('select_date').value = '';
+        document.getElementById('customer_memo').value = '';
+        document.getElementById('selected_datetime').value = '';
+        document.getElementById('time-slots').innerHTML = '';
+        document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
+        if (hideComplete) document.getElementById('complete-message').style.display = 'none';
+    }
 
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const staffName = document.getElementById('select_staff').value;
         const container = document.getElementById('time-slots');
         container.innerHTML = '';
+        document.getElementById('selected_datetime').value = '';
         if (!dateStr) return;
 
-        const { data: setting } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        const { data: setting, error: settingError } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        if (settingError || !setting) {
+            container.innerHTML = '<p class="help-text">営業時間の取得に失敗しました。</p>';
+            return;
+        }
+
         // 定休日ロジック
         const dayOfWeek = new Date(dateStr).getDay();
-        if (setting.regular_holidays?.split(',').includes(dayOfWeek.toString())) return container.innerHTML = '<p>定休日です</p>';
+        if (setting.regular_holidays?.split(',').includes(dayOfWeek.toString())) {
+            container.innerHTML = '<p class="help-text">この日は定休日です。</p>';
+            return;
+        }
 
         const startH = parseInt(setting.open_time.split(':')[0]);
         const endH = parseInt(setting.close_time.split(':')[0]);
 
         // クエリ設定（「お任せ」ならスタッフ指定なし）
-        let query = sbClient.from('bookings').select('start_datetime').gte('start_datetime', `${dateStr}T00:00:00`).lte('start_datetime', `${dateStr}T23:59:59`);
+        let query = sbClient.from('bookings')
+            .select('start_datetime')
+            .gte('start_datetime', `${dateStr}T00:00:00`)
+            .lte('start_datetime', `${dateStr}T23:59:59`);
         if (staffName !== 'お任せ') query = query.eq('staff_name', staffName);
 
-        const { data } = await query;
+        const { data, error } = await query;
+        if (error) {
+            container.innerHTML = '<p class="help-text">予約枠の取得に失敗しました。</p>';
+            return;
+        }
+
         const booked = data ? data.map(b => b.start_datetime.substring(11, 16)) : [];
         
         for (let h = startH; h < endH; h++) {
@@ -208,6 +332,7 @@
             });
         }
     }
+
     initLiff();
 </script>
 </body>
