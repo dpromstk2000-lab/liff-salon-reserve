@@ -64,12 +64,27 @@
 </div>
 
 <script>
-    const sbClient = supabase.createClient('https://cbknucemarcpbscirzyv.supabase.co', 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J');
+    const sbClient = supabase.createClient(
+        'https://cbknucemarcpbscirzyv.supabase.co',
+        'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
+    );
+
+    // STEP5：オーナー通知用Cloudflare Worker URL
+    const OWNER_NOTIFY_WORKER_URL = "https://salon-owner-notify.dpromstk2000.workers.dev";
+
+    // 今回は空欄のままでOK
+    const OWNER_NOTIFY_SECRET = "";
+
     let lineUserId = "";
+    let lineDisplayName = "";
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, char => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
         }[char]));
     }
 
@@ -111,6 +126,29 @@
         }
     }
 
+    async function notifyOwner(action, booking) {
+        if (!OWNER_NOTIFY_WORKER_URL) return;
+
+        try {
+            await fetch(OWNER_NOTIFY_WORKER_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-notify-secret': OWNER_NOTIFY_SECRET
+                },
+                body: JSON.stringify({
+                    action: action,
+                    booking: {
+                        ...booking,
+                        line_display_name: lineDisplayName
+                    }
+                })
+            });
+        } catch (error) {
+            console.warn('オーナー通知に失敗しました', error);
+        }
+    }
+
     async function initLiff() {
         await liff.init({ liffId: "2010243135-H06VsAHm" });
         document.getElementById('select_date').min = toLocalDateString(new Date());
@@ -118,7 +156,9 @@
         if (liff.isLoggedIn()) {
             const p = await liff.getProfile();
             lineUserId = p.userId;
+            lineDisplayName = p.displayName;
             document.getElementById('user-display').innerText = p.displayName + " 様";
+
             loadCustomerNameFromBrowser();
             fetchBookings();
             fetchStaffs();
@@ -129,7 +169,11 @@
 
     async function fetchStaffs() {
         const { data, error } = await sbClient.from('staffs').select('*');
-        if (error) return alert('スタッフ情報の取得に失敗しました: ' + error.message);
+
+        if (error) {
+            alert('スタッフ情報の取得に失敗しました: ' + error.message);
+            return;
+        }
 
         const select = document.getElementById('select_staff');
         data?.forEach(s => {
@@ -144,8 +188,36 @@
         const staff = document.getElementById('select_staff').value;
         const memo = document.getElementById('customer_memo').value.trim();
         
-        if (!name.includes(' ') && !name.includes('　')) return alert('フルネーム（苗字と名前の間にスペース）で入力してください。');
-        if (!time) return alert('時間を選択してください');
+        if (!name.includes(' ') && !name.includes('　')) {
+            return alert('フルネーム（苗字と名前の間にスペース）で入力してください。');
+        }
+
+        if (!time) {
+            return alert('時間を選択してください');
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.innerText = '確認中...';
+
+        const nowStr = toLocalDateTimeString(new Date());
+
+        const { data: activeBookings, error: activeError } = await sbClient
+            .from('bookings')
+            .select('id')
+            .eq('line_user_id', lineUserId)
+            .gte('start_datetime', nowStr);
+
+        if (activeError) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = '予約を確定';
+            return alert('現在の予約確認に失敗しました: ' + activeError.message);
+        }
+
+        if (activeBookings && activeBookings.length >= 2) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = '予約を確定';
+            return alert('同時に保持できる予約は2件までです。変更が必要な場合は、既存の予約を削除してから再度ご予約ください。');
+        }
 
         const booking = {
             customer_name: name,
@@ -155,10 +227,13 @@
             line_user_id: lineUserId
         };
 
-        saveBtn.disabled = true;
         saveBtn.innerText = '予約中...';
-        
-        const { error } = await sbClient.from('bookings').insert(booking);
+
+        const { data: savedBooking, error } = await sbClient
+            .from('bookings')
+            .insert(booking)
+            .select()
+            .single();
 
         saveBtn.disabled = false;
         saveBtn.innerText = '予約を確定';
@@ -168,8 +243,13 @@
             return;
         }
 
+        const notifyBooking = savedBooking || booking;
+
         saveCustomerNameToBrowser(name);
-        showCompleteMessage(booking);
+        showCompleteMessage(notifyBooking);
+
+        notifyOwner('created', notifyBooking);
+
         clearForm(false);
         await fetchBookings();
         await renderTimeSlots();
@@ -177,12 +257,14 @@
 
     function showCompleteMessage(booking) {
         const box = document.getElementById('complete-message');
+
         box.innerHTML = `
             <div class="complete-title">ご予約が完了しました</div>
             <div><strong>${escapeHtml(formatBookingDate(booking.start_datetime))}</strong></div>
             <div>担当：${escapeHtml(booking.staff_name)}</div>
             <div style="font-size:0.9em; color:#777; margin-top:6px;">ご来店をお待ちしております。</div>
         `;
+
         box.style.display = 'block';
         box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -191,9 +273,11 @@
         if (!item) {
             const empty = document.createElement('div');
             empty.className = 'status-card empty-card';
+
             empty.innerHTML = type === 'next'
                 ? `<div class="status-label">次回のご予約</div><div>現在、次回予約はありません。</div>`
                 : `<div class="status-label">前回の予約日</div><div>前回予約はまだありません。</div>`;
+
             return empty;
         }
 
@@ -203,6 +287,7 @@
 
         const div = document.createElement('div');
         div.className = `status-card ${type === 'next' ? 'next-booking' : 'past-booking'}`;
+
         div.innerHTML = `
             <div class="status-label">${type === 'next' ? '次回のご予約' : '前回の予約日'}</div>
             <div class="status-date"><strong>${escapeHtml(formatBookingDate(item.start_datetime))}</strong></div>
@@ -215,6 +300,7 @@
                 : '<p style="color:#777; font-size:0.8em; margin-bottom:0;">前回のご来店記録です。</p>'
             }
         `;
+
         return div;
     }
 
@@ -231,6 +317,7 @@
                 .gte('start_datetime', nowStr)
                 .order('start_datetime', { ascending: true })
                 .limit(1),
+
             sbClient.from('bookings')
                 .select('*')
                 .eq('line_user_id', lineUserId)
@@ -250,6 +337,7 @@
         const lastBooking = lastResult.data?.[0] || null;
 
         const nameSource = nextBooking || lastBooking;
+
         if (nameSource?.customer_name && !document.getElementById('customer_name').value) {
             document.getElementById('customer_name').value = nameSource.customer_name;
             saveCustomerNameToBrowser(nameSource.customer_name);
@@ -261,8 +349,27 @@
 
     async function deleteBooking(id) {
         if (!confirm('予約を削除しますか？')) return;
-        const { error } = await sbClient.from('bookings').delete().eq('id', id);
-        if (error) return alert('削除に失敗しました: ' + error.message);
+
+        const { data: bookingBeforeDelete } = await sbClient
+            .from('bookings')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        const { error } = await sbClient
+            .from('bookings')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert('削除に失敗しました: ' + error.message);
+            return;
+        }
+
+        if (bookingBeforeDelete) {
+            notifyOwner('cancelled', bookingBeforeDelete);
+        }
+
         await fetchBookings();
         await renderTimeSlots();
     }
@@ -272,26 +379,35 @@
         document.getElementById('customer_memo').value = '';
         document.getElementById('selected_datetime').value = '';
         document.getElementById('time-slots').innerHTML = '';
-        document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
-        if (hideComplete) document.getElementById('complete-message').style.display = 'none';
+
+        if (hideComplete) {
+            document.getElementById('complete-message').style.display = 'none';
+        }
     }
 
     async function renderTimeSlots() {
         const dateStr = document.getElementById('select_date').value;
         const staffName = document.getElementById('select_staff').value;
         const container = document.getElementById('time-slots');
+
         container.innerHTML = '';
         document.getElementById('selected_datetime').value = '';
+
         if (!dateStr) return;
 
-        const { data: setting, error: settingError } = await sbClient.from('salon_settings').select('*').eq('id', 1).single();
+        const { data: setting, error: settingError } = await sbClient
+            .from('salon_settings')
+            .select('*')
+            .eq('id', 1)
+            .single();
+
         if (settingError || !setting) {
             container.innerHTML = '<p class="help-text">営業時間の取得に失敗しました。</p>';
             return;
         }
 
-        // 定休日ロジック
         const dayOfWeek = new Date(dateStr).getDay();
+
         if (setting.regular_holidays?.split(',').includes(dayOfWeek.toString())) {
             container.innerHTML = '<p class="help-text">この日は定休日です。</p>';
             return;
@@ -300,14 +416,17 @@
         const startH = parseInt(setting.open_time.split(':')[0]);
         const endH = parseInt(setting.close_time.split(':')[0]);
 
-        // クエリ設定（「お任せ」ならスタッフ指定なし）
         let query = sbClient.from('bookings')
             .select('start_datetime')
             .gte('start_datetime', `${dateStr}T00:00:00`)
             .lte('start_datetime', `${dateStr}T23:59:59`);
-        if (staffName !== 'お任せ') query = query.eq('staff_name', staffName);
+
+        if (staffName !== 'お任せ') {
+            query = query.eq('staff_name', staffName);
+        }
 
         const { data, error } = await query;
+
         if (error) {
             container.innerHTML = '<p class="help-text">予約枠の取得に失敗しました。</p>';
             return;
@@ -319,15 +438,24 @@
             [0, 30].forEach(m => {
                 const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 const isBooked = booked.includes(t);
+
                 const btn = document.createElement('button');
                 btn.innerText = isBooked ? '✕' : t;
                 btn.disabled = isBooked;
-                if (isBooked) btn.style.background = '#eee';
+
+                if (isBooked) {
+                    btn.style.background = '#eee';
+                }
+
                 btn.onclick = () => {
-                    document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('selected-slot'));
+                    document.querySelectorAll('#time-slots button').forEach(b => {
+                        b.classList.remove('selected-slot');
+                    });
+
                     btn.classList.add('selected-slot');
                     document.getElementById('selected_datetime').value = `${dateStr}T${t}:00`;
                 };
+
                 container.appendChild(btn);
             });
         }
