@@ -15,6 +15,12 @@
         .selected-slot { background: #d9a0a0 !important; }
         .booking-item { border-bottom: 1px solid #eee; padding: 15px 0; }
         .memo-text { font-size: 0.85em; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; display: block; margin-top: 5px; }
+        .status-card { border: 1px solid #eee; border-radius: 12px; padding: 15px; margin-bottom: 12px; }
+        .next-booking { background: #fffaf8; }
+        .past-booking { background: #f8f7f4; }
+        .status-label { font-size: 0.8em; color: #8e7f7f; font-weight: bold; margin-bottom: 6px; }
+        .status-date { font-size: 1.1em; margin-bottom: 6px; }
+        .empty-text { color: #777; font-size: 0.9em; line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -42,7 +48,7 @@
     <button id="save_btn" onclick="saveBooking()" style="margin-top:20px;">予約を確定</button>
     <button onclick="location.reload()" style="background:#aaa;">クリア</button>
     
-    <h3 style="margin-top:30px;">あなたの予約一覧</h3>
+    <h3 style="margin-top:30px;">ご予約状況</h3>
     <div id="booking-list"></div>
 </div>
 
@@ -85,22 +91,80 @@
         if (error) alert('予約失敗: ' + error.message); else { alert('予約しました'); location.reload(); }
     }
 
-    async function fetchBookings() {
-        const { data } = await sbClient.from('bookings').select('*').eq('line_user_id', lineUserId).order('start_datetime');
-        const list = document.getElementById('booking-list');
-        list.innerHTML = '';
+    function toLocalDateTimeString(date) {
+        const y = date.getFullYear();
+        const mo = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        const h = String(date.getHours()).padStart(2, '0');
+        const mi = String(date.getMinutes()).padStart(2, '0');
+        const s = String(date.getSeconds()).padStart(2, '0');
+        return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+    }
+
+    function formatBookingDate(value) {
+        return value.replace('T', ' ').substring(0, 16);
+    }
+
+    function createBookingCard(item, type) {
         const now = new Date();
-        data?.forEach(item => {
-            const bookingDate = new Date(item.start_datetime);
-            const canCancel = (bookingDate - now) / (1000 * 60 * 60 * 24) > 1;
-            const div = document.createElement('div');
-            div.className = 'booking-item';
-            div.innerHTML = `<div><strong>${item.start_datetime.replace('T', ' ').substring(0,16)}</strong><br>
-                            ${item.customer_name} [担当: ${item.staff_name}]
-                            ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}</div>
-                            ${canCancel ? `<button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">削除</button>` : '<p style="color:red; font-size:0.8em;">※前日以降の変更は電話へ</p>'}`;
-            list.append(div);
-        });
+        const bookingDate = new Date(item.start_datetime);
+        const canCancel = type === 'next' && (bookingDate - now) / (1000 * 60 * 60 * 24) > 1;
+
+        const div = document.createElement('div');
+        div.className = `booking-item status-card ${type === 'next' ? 'next-booking' : 'past-booking'}`;
+        div.innerHTML = `
+            <div class="status-label">${type === 'next' ? '次回のご予約' : '前回の予約日'}</div>
+            <div class="status-date"><strong>${formatBookingDate(item.start_datetime)}</strong></div>
+            <div>${item.customer_name} [担当: ${item.staff_name}]</div>
+            ${item.memo ? `<span class="memo-text">メモ: ${item.memo}</span>` : ''}
+            ${type === 'next'
+                ? (canCancel
+                    ? `<button onclick="deleteBooking(${item.id})" style="background:#d9a0a0; width:auto; margin-top:10px;">予約を削除</button>`
+                    : '<p style="color:red; font-size:0.8em;">※前日以降の変更は電話へ</p>')
+                : '<p style="color:#777; font-size:0.8em; margin-bottom:0;">前回のご来店記録です</p>'
+            }
+        `;
+        return div;
+    }
+
+    async function fetchBookings() {
+        const list = document.getElementById('booking-list');
+        list.innerHTML = '読み込み中...';
+
+        const nowStr = toLocalDateTimeString(new Date());
+
+        const [nextResult, lastResult] = await Promise.all([
+            sbClient.from('bookings')
+                .select('*')
+                .eq('line_user_id', lineUserId)
+                .gte('start_datetime', nowStr)
+                .order('start_datetime', { ascending: true })
+                .limit(1),
+            sbClient.from('bookings')
+                .select('*')
+                .eq('line_user_id', lineUserId)
+                .lt('start_datetime', nowStr)
+                .order('start_datetime', { ascending: false })
+                .limit(1)
+        ]);
+
+        list.innerHTML = '';
+
+        if (nextResult.error || lastResult.error) {
+            list.innerHTML = '<p class="empty-text">予約情報の取得に失敗しました。</p>';
+            return;
+        }
+
+        const nextBooking = nextResult.data?.[0];
+        const lastBooking = lastResult.data?.[0];
+
+        if (!nextBooking && !lastBooking) {
+            list.innerHTML = '<p class="empty-text">現在、表示できる予約はありません。</p>';
+            return;
+        }
+
+        if (nextBooking) list.append(createBookingCard(nextBooking, 'next'));
+        if (lastBooking) list.append(createBookingCard(lastBooking, 'past'));
     }
 
     async function deleteBooking(id) { if(!confirm('削除しますか？')) return; await sbClient.from('bookings').delete().eq('id', id); fetchBookings(); }
