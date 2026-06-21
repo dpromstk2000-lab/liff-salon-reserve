@@ -27,6 +27,30 @@
         .complete-title { color: #8e7f7f; font-weight: bold; margin-bottom: 6px; }
         .danger-note { color:red; font-size:0.8em; margin-bottom:0; }
         .small-button { width:auto; margin-top:10px; padding:8px 12px; }
+
+        .line-contact-btn {
+            background: #06c755;
+            color: white;
+            margin-left: 6px;
+        }
+
+        .memo-template-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 6px 0 10px;
+        }
+
+        .template-button {
+            width: auto;
+            background: #f0e8e4;
+            color: #6d4c41;
+            border: 1px solid #e0d3cd;
+            font-size: 0.8em;
+            padding: 7px 10px;
+            margin: 0;
+        }
+
         .closed-message {
             grid-column: 1 / -1;
             background: #fff7f4;
@@ -50,7 +74,10 @@
     <div id="booking-list">読み込み中...</div>
 
     <h3 class="section-title">新しく予約する</h3>
-    <p class="help-text">次回予約がある場合は、上の「次回のご予約」をご確認のうえ、ご予約ください。</p>
+    <p class="help-text">
+        次回予約がある場合は、上の「次回のご予約」をご確認のうえ、ご予約ください。<br>
+        一度ご予約いただいたお客様は、次回からお名前が自動で入力されます。
+    </p>
 
     <label>お客様名（フルネーム）</label>
     <input type="text" id="customer_name" class="input-box" placeholder="山田 太郎">
@@ -64,6 +91,12 @@
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
     
     <label>備考（任意）</label>
+    <div class="memo-template-buttons">
+        <button type="button" class="template-button" onclick="applyMemoTemplate('前回と同じ内容でお願いします。')">前回と同じ</button>
+        <button type="button" class="template-button" onclick="applyMemoTemplate('相談しながら決めたいです。')">相談したい</button>
+        <button type="button" class="template-button" onclick="applyMemoTemplate('急ぎではないので、当日相談しながら決めたいです。')">急ぎではない</button>
+        <button type="button" class="template-button" onclick="applyMemoTemplate('できれば時間通りに開始したいです。')">時間通り希望</button>
+    </div>
     <input type="text" id="customer_memo" class="input-box" placeholder="例：前回と同じ内容でお願いします">
     
     <div id="time-slots"></div>
@@ -79,10 +112,7 @@
         'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
     );
 
-    // STEP5：オーナー通知用Cloudflare Worker URL
     const OWNER_NOTIFY_WORKER_URL = "https://salon-owner-notify.dpromstk2000.workers.dev";
-
-    // 今回は空欄のままでOK
     const OWNER_NOTIFY_SECRET = "";
 
     let lineUserId = "";
@@ -130,6 +160,11 @@
         return `${Number(m)}月${Number(d)}日 ${time}`;
     }
 
+    function applyMemoTemplate(text) {
+        document.getElementById('customer_memo').value = text;
+        document.getElementById('customer_memo').focus();
+    }
+
     function saveCustomerNameToBrowser(name) {
         if (!lineUserId || !name) return;
         localStorage.setItem(`salon_customer_name_${lineUserId}`, name);
@@ -141,6 +176,16 @@
         if (savedName && !document.getElementById('customer_name').value) {
             document.getElementById('customer_name').value = savedName;
         }
+    }
+
+    function contactByLine() {
+        if (typeof liff !== 'undefined' && liff.isInClient()) {
+            alert('LINEトーク画面に戻ります。変更・キャンセル内容をメッセージでお送りください。');
+            liff.closeWindow();
+            return;
+        }
+
+        alert('LINEアプリ内から開くと、ボタンでトーク画面に戻れます。変更・キャンセルはLINEまたはお電話でご連絡ください。');
     }
 
     async function notifyOwner(action, booking) {
@@ -368,9 +413,13 @@
             <div>${escapeHtml(item.customer_name)} [担当: ${escapeHtml(item.staff_name)}]</div>
             ${item.memo ? `<span class="memo-text">メモ: ${escapeHtml(item.memo)}</span>` : ''}
             ${type === 'next'
-                ? (canCancel
-                    ? `<button onclick="deleteBooking(${item.id})" class="small-button" style="background:#d9a0a0;">予約を削除</button>`
-                    : '<p class="danger-note">※前日以降の変更・キャンセルはLINEまたはお電話でご連絡ください。</p>')
+                ? `
+                    ${canCancel
+                        ? `<button onclick="deleteBooking(${item.id})" class="small-button" style="background:#d9a0a0;">予約を削除</button>`
+                        : '<p class="danger-note">※前日以降の変更・キャンセルはLINEまたはお電話でご連絡ください。</p>'
+                    }
+                    <button onclick="contactByLine()" class="small-button line-contact-btn">LINEで連絡する</button>
+                  `
                 : '<p style="color:#777; font-size:0.8em; margin-bottom:0;">前回のご来店記録です。</p>'
             }
         `;
