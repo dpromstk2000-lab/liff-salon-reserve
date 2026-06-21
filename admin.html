@@ -360,14 +360,14 @@
             <div id="today-note" class="quick-note">読み込み中...</div>
         </div>
 
-        <div class="quick-card" onclick="goToTomorrow()">
-            <div class="quick-label">明日の予約</div>
-            <div id="tomorrow-count" class="quick-count">--件</div>
-            <div id="tomorrow-note" class="quick-note">読み込み中...</div>
+        <div class="quick-card" onclick="goToNextBusinessDay()">
+            <div class="quick-label">次の営業日の予約</div>
+            <div id="next-business-count" class="quick-count">--件</div>
+            <div id="next-business-note" class="quick-note">読み込み中...</div>
         </div>
 
         <div class="quick-full">
-            本日・明日の予約件数をすぐ確認できます。カードを押すと、その日の予約一覧に移動します。
+            本日の予約と、定休日・臨時休業日を除いた「次の営業日」の予約件数をすぐ確認できます。
         </div>
     </div>
 
@@ -460,10 +460,10 @@
         'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
     );
 
-    // STEP9-2で作成したCloudflare Worker
     const DEMO_RESET_WORKER_URL = "https://salon-demo-reset.dpromstk2000.workers.dev";
 
     let currentDate = new Date();
+    let nextBusinessDateString = "";
     window.currentStaffs = [];
 
     window.onload = async () => {
@@ -489,6 +489,11 @@
         const m = String(date.getMonth() + 1).padStart(2, '0');
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
+    }
+
+    function parseLocalDate(dateStr) {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
     }
 
     function getTodayString() {
@@ -591,7 +596,7 @@
             }
 
             setDemoResetMessage(
-                '営業前DEMOデータを準備しました。\n本日・明日の予約件数、定休日、臨時休業日を更新しました。',
+                '営業前DEMOデータを準備しました。\n本日と次の営業日の予約件数、定休日、臨時休業日を更新しました。',
                 'success'
             );
 
@@ -635,14 +640,63 @@
         }
     }
 
+    async function findNextBusinessDateString() {
+        const today = getTodayString();
+        const startDate = getTomorrowString();
+        const endDate = getTwoMonthsLaterString();
+
+        const { data: setting } = await sbClient
+            .from('salon_settings')
+            .select('regular_holidays')
+            .eq('id', 1)
+            .single();
+
+        const holidays = setting?.regular_holidays
+            ? setting.regular_holidays.split(',').filter(Boolean)
+            : [];
+
+        const { data: closedDays } = await sbClient
+            .from('salon_closed_days')
+            .select('closed_date')
+            .gte('closed_date', startDate)
+            .lte('closed_date', endDate);
+
+        const closedSet = new Set((closedDays || []).map(item => item.closed_date));
+
+        for (let i = 1; i <= 60; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() + i);
+
+            const dateStr = toLocalDateString(d);
+            const dow = String(d.getDay());
+
+            if (holidays.includes(dow)) continue;
+            if (closedSet.has(dateStr)) continue;
+
+            return dateStr;
+        }
+
+        return '';
+    }
+
     async function fetchQuickSummary() {
         const todayStr = getTodayString();
-        const tomorrowStr = getTomorrowString();
 
-        await Promise.all([
-            updateQuickCard(todayStr, 'today-count', 'today-note'),
-            updateQuickCard(tomorrowStr, 'tomorrow-count', 'tomorrow-note')
-        ]);
+        await updateQuickCard(todayStr, 'today-count', 'today-note');
+
+        nextBusinessDateString = await findNextBusinessDateString();
+
+        if (!nextBusinessDateString) {
+            document.getElementById('next-business-count').innerText = '--件';
+            document.getElementById('next-business-note').innerText = '次の営業日を取得できませんでした';
+            return;
+        }
+
+        await updateQuickCard(
+            nextBusinessDateString,
+            'next-business-count',
+            'next-business-note'
+        );
     }
 
     async function updateQuickCard(dateStr, countId, noteId) {
@@ -956,9 +1010,13 @@
         fetchBookings();
     }
 
-    function goToTomorrow() {
-        currentDate = new Date();
-        currentDate.setDate(currentDate.getDate() + 1);
+    function goToNextBusinessDay() {
+        if (!nextBusinessDateString) {
+            alert('次の営業日を取得できませんでした。');
+            return;
+        }
+
+        currentDate = parseLocalDate(nextBusinessDateString);
         fetchBookings();
     }
 
