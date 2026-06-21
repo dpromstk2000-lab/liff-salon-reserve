@@ -136,6 +136,83 @@
             background: #a15c38;
         }
 
+        .manual-booking-box {
+            background: #fffaf8;
+            border: 1px solid #eadbd3;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 18px 0 20px;
+        }
+
+        .manual-booking-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .manual-booking-grid .full {
+            grid-column: 1 / -1;
+        }
+
+        .manual-label {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--primary-brown);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .manual-input,
+        .manual-select,
+        .manual-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 15px;
+            box-sizing: border-box;
+            background: #fff;
+        }
+
+        .manual-textarea {
+            min-height: 70px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .memo-template-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 6px 0 10px;
+        }
+
+        .template-button {
+            width: auto;
+            background: #f0e8e4;
+            color: #6d4c41;
+            border: 1px solid #e0d3cd;
+            font-size: 12px;
+            padding: 7px 10px;
+            margin: 0;
+        }
+
+        .manual-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .manual-actions button {
+            flex: 1;
+            padding: 11px;
+        }
+
+        .clear-btn {
+            background: #a1887f;
+        }
+
         .holiday-checkboxes {
             display: flex;
             flex-wrap: wrap;
@@ -347,6 +424,24 @@
             line-height: 1.7;
             color: var(--primary-brown);
         }
+
+        @media (max-width: 520px) {
+            .manual-booking-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .manual-booking-grid .full {
+                grid-column: 1;
+            }
+
+            .quick-summary {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .manual-actions {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
@@ -443,6 +538,57 @@
         </div>
     </div>
 
+    <div class="manual-booking-box" id="manual-booking-box">
+        <h4>電話・店頭予約を追加</h4>
+        <p class="note-text">
+            空き枠の「＋予約」を押すと、日付と時間がここに自動で入ります。<br>
+            電話を受けながら、名前・担当・要望を1画面で入力できます。
+        </p>
+
+        <div class="manual-booking-grid">
+            <div>
+                <label class="manual-label">予約日</label>
+                <input type="date" id="manual-date" class="manual-input">
+            </div>
+
+            <div>
+                <label class="manual-label">時間</label>
+                <input type="time" id="manual-time" class="manual-input" step="1800">
+            </div>
+
+            <div class="full">
+                <label class="manual-label">お客様名</label>
+                <input type="text" id="manual-name" class="manual-input" placeholder="例：山田 花子">
+            </div>
+
+            <div class="full">
+                <label class="manual-label">担当</label>
+                <select id="manual-staff" class="manual-select">
+                    <option value="お任せ">お任せ</option>
+                </select>
+            </div>
+
+            <div class="full">
+                <label class="manual-label">要望・メモ</label>
+                <div class="memo-template-buttons">
+                    <button type="button" class="template-button" onclick="applyManualMemo('前回と同じ内容でお願いします。')">前回と同じ</button>
+                    <button type="button" class="template-button" onclick="applyManualMemo('相談しながら決めたいです。')">相談したい</button>
+                    <button type="button" class="template-button" onclick="applyManualMemo('急ぎではないので、当日相談しながら決めたいです。')">急ぎではない</button>
+                    <button type="button" class="template-button" onclick="applyManualMemo('できれば時間通りに開始したいです。')">時間通り希望</button>
+                    <button type="button" class="template-button" onclick="applyManualMemo('電話予約として登録。')">電話予約</button>
+                </div>
+                <textarea id="manual-memo" class="manual-textarea" placeholder="例：前回と同じ内容でお願いします"></textarea>
+            </div>
+        </div>
+
+        <div class="manual-actions">
+            <button id="manual-save-btn" onclick="addManualBooking()">予約を追加する</button>
+            <button class="clear-btn" onclick="clearManualForm()">入力をクリア</button>
+        </div>
+
+        <div id="manual-message" class="message"></div>
+    </div>
+
     <div class="date-nav">
         <button onclick="changeDate(-1)">← 前日</button>
         <h3 id="display-date"></h3>
@@ -468,6 +614,7 @@
 
     window.onload = async () => {
         initClosedDateInput();
+        initManualDateInput();
         await loadSettings();
         await fetchStaffs();
         await fetchClosedDays();
@@ -532,10 +679,23 @@
         box.innerHTML = text ? escapeHtml(text).replace(/\n/g, '<br>') : '';
     }
 
+    function setManualMessage(text, type = '') {
+        const box = document.getElementById('manual-message');
+        box.className = `message ${type}`;
+        box.innerHTML = text ? escapeHtml(text).replace(/\n/g, '<br>') : '';
+    }
+
     function initClosedDateInput() {
         const dateInput = document.getElementById('closed-date');
         dateInput.min = getTodayString();
         dateInput.max = getTwoMonthsLaterString();
+    }
+
+    function initManualDateInput() {
+        const dateInput = document.getElementById('manual-date');
+        dateInput.min = getTodayString();
+        dateInput.max = getTwoMonthsLaterString();
+        dateInput.value = toLocalDateString(currentDate);
     }
 
     function toggleSettings() {
@@ -641,7 +801,6 @@
     }
 
     async function findNextBusinessDateString() {
-        const today = getTodayString();
         const startDate = getTomorrowString();
         const endDate = getTwoMonthsLaterString();
 
@@ -920,8 +1079,28 @@
             </div>
         `).join('');
 
+        renderManualStaffOptions();
+
         await fetchBookings();
         await fetchQuickSummary();
+    }
+
+    function renderManualStaffOptions() {
+        const select = document.getElementById('manual-staff');
+        const currentValue = select.value || 'お任せ';
+
+        select.innerHTML = '<option value="お任せ">お任せ</option>';
+
+        window.currentStaffs.forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.name;
+            option.textContent = staff.name;
+            select.appendChild(option);
+        });
+
+        if ([...select.options].some(option => option.value === currentValue)) {
+            select.value = currentValue;
+        }
     }
 
     async function addStaff() {
@@ -958,55 +1137,155 @@
         await fetchStaffs();
     }
 
-    async function addBooking(time) {
-        const name = prompt("お客様名");
-        if (!name) return;
+    function applyManualMemo(text) {
+        document.getElementById('manual-memo').value = text;
+        document.getElementById('manual-memo').focus();
+    }
 
-        const memo = prompt("メモ（任意）") || "";
-        
-        const staffOptions = window.currentStaffs
-            .map((s, index) => `${index + 1}: ${s.name}`)
-            .join('\n');
+    function clearManualForm() {
+        document.getElementById('manual-date').value = toLocalDateString(currentDate);
+        document.getElementById('manual-time').value = '';
+        document.getElementById('manual-name').value = '';
+        document.getElementById('manual-staff').value = 'お任せ';
+        document.getElementById('manual-memo').value = '';
+        setManualMessage('');
+    }
 
-        const staffIndex = prompt(`担当スタッフ番号を入力してください:\n0: 指定なし(お任せ)\n${staffOptions}`);
-        
-        let selectedStaff = "お任せ";
-
-        if (
-            staffIndex !== null &&
-            staffIndex !== "0" &&
-            window.currentStaffs[parseInt(staffIndex) - 1]
-        ) {
-            selectedStaff = window.currentStaffs[parseInt(staffIndex) - 1].name;
-        }
-        
+    function setManualBookingTime(time) {
         const dateStr = toLocalDateString(currentDate);
+
+        document.getElementById('manual-date').value = dateStr;
+        document.getElementById('manual-time').value = time;
+        setManualMessage(`${formatDate(dateStr)} ${time} の予約を入力できます。`, 'success');
+
+        const box = document.getElementById('manual-booking-box');
+        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        setTimeout(() => {
+            document.getElementById('manual-name').focus();
+        }, 350);
+    }
+
+    async function checkManualBookingDate(dateStr) {
+        const { data: setting, error: settingError } = await sbClient
+            .from('salon_settings')
+            .select('regular_holidays')
+            .eq('id', 1)
+            .single();
+
+        if (settingError || !setting) {
+            return { ok: false, message: '店舗設定の取得に失敗しました。' };
+        }
+
+        const { data: closedRows, error: closedError } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .eq('closed_date', dateStr)
+            .limit(1);
+
+        if (closedError) {
+            return { ok: false, message: '臨時休業日の確認に失敗しました。' };
+        }
+
+        if (closedRows && closedRows.length > 0) {
+            const reason = closedRows[0].reason
+                ? `\n理由：${closedRows[0].reason.replace('【DEMO】', '')}`
+                : '';
+            return { ok: false, message: `この日は臨時休業日です。${reason}` };
+        }
+
+        const date = parseLocalDate(dateStr);
+        const holidays = setting.regular_holidays ? setting.regular_holidays.split(',') : [];
+
+        if (holidays.includes(String(date.getDay()))) {
+            return { ok: false, message: 'この日は定休日です。' };
+        }
+
+        return { ok: true, message: '' };
+    }
+
+    async function addManualBooking() {
+        const saveBtn = document.getElementById('manual-save-btn');
+        const dateStr = document.getElementById('manual-date').value;
+        const time = document.getElementById('manual-time').value;
+        const name = document.getElementById('manual-name').value.trim();
+        const staffName = document.getElementById('manual-staff').value;
+        const memo = document.getElementById('manual-memo').value.trim();
+
+        setManualMessage('');
+
+        if (!dateStr) {
+            setManualMessage('予約日を選択してください。', 'error');
+            return;
+        }
+
+        if (!time) {
+            setManualMessage('時間を選択してください。', 'error');
+            return;
+        }
+
+        if (!name) {
+            setManualMessage('お客様名を入力してください。', 'error');
+            return;
+        }
+
+        const today = getTodayString();
+        const twoMonthsLater = getTwoMonthsLaterString();
+
+        if (dateStr < today || dateStr > twoMonthsLater) {
+            setManualMessage('予約日は今日から直近2カ月以内で選択してください。', 'error');
+            return;
+        }
+
+        const canBook = await checkManualBookingDate(dateStr);
+
+        if (!canBook.ok) {
+            setManualMessage(canBook.message, 'error');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.innerText = '追加中...';
 
         const { error } = await sbClient
             .from('bookings')
-            .insert({ 
+            .insert({
                 customer_name: name,
                 memo: memo,
-                staff_name: selectedStaff,
-                start_datetime: `${dateStr}T${time}:00`
+                staff_name: staffName,
+                start_datetime: `${dateStr}T${time}:00`,
+                line_user_id: 'manual_booking'
             });
 
+        saveBtn.disabled = false;
+        saveBtn.innerText = '予約を追加する';
+
         if (error) {
-            alert('予約追加に失敗しました: ' + error.message);
+            setManualMessage('予約追加に失敗しました。\n' + error.message, 'error');
             return;
         }
+
+        setManualMessage(`${formatDate(dateStr)} ${time} に予約を追加しました。`, 'success');
+
+        currentDate = parseLocalDate(dateStr);
+
+        document.getElementById('manual-name').value = '';
+        document.getElementById('manual-memo').value = '';
+        document.getElementById('manual-time').value = '';
 
         await fetchBookings();
         await fetchQuickSummary();
     }
 
     function changeDate(d) { 
-        currentDate.setDate(currentDate.getDate() + d); 
+        currentDate.setDate(currentDate.getDate() + d);
+        document.getElementById('manual-date').value = toLocalDateString(currentDate);
         fetchBookings(); 
     }
 
     function goToToday() {
         currentDate = new Date();
+        document.getElementById('manual-date').value = toLocalDateString(currentDate);
         fetchBookings();
     }
 
@@ -1017,6 +1296,7 @@
         }
 
         currentDate = parseLocalDate(nextBusinessDateString);
+        document.getElementById('manual-date').value = nextBusinessDateString;
         fetchBookings();
     }
 
@@ -1117,7 +1397,7 @@
                 if (bookedCount >= capacity) {
                     html += `<button disabled style="margin-left:10px;">満席</button>`;
                 } else {
-                    html += `<button onclick="addBooking('${t}')" style="margin-left:10px;">＋ 予約</button>`;
+                    html += `<button onclick="setManualBookingTime('${t}')" style="margin-left:10px;">＋ 予約</button>`;
                 }
                 
                 html += `</div>`;
