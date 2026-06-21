@@ -127,6 +127,15 @@
             margin-bottom: 20px; 
         }
 
+        .demo-box {
+            background: #fff8f3;
+            border: 1px solid #e5c8b9;
+        }
+
+        .demo-btn {
+            background: #a15c38;
+        }
+
         .holiday-checkboxes {
             display: flex;
             flex-wrap: wrap;
@@ -365,6 +374,20 @@
     <button class="toggle-btn" onclick="toggleSettings()">⚙️ 店舗設定・スタッフ管理を開く ▼</button>
 
     <div id="settings-area">
+
+        <div class="settings-box demo-box">
+            <h4>営業前DEMO準備</h4>
+
+            <p class="note-text">
+                営業前に押すと、DEMO予約・定休日・臨時休業日を今日基準で作り直します。<br>
+                あなた自身のLINE予約履歴もリセットされるため、お客様画面を「初めて予約する状態」で見せられます。
+            </p>
+
+            <button class="save-btn demo-btn" id="demo-reset-btn" onclick="resetDemoData()">営業前DEMOを準備する</button>
+
+            <div id="demo-reset-message" class="message"></div>
+        </div>
+
         <div class="settings-box">
             <h4>店舗設定</h4>
 
@@ -437,6 +460,9 @@
         'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
     );
 
+    // STEP9-2で作成したCloudflare Worker
+    const DEMO_RESET_WORKER_URL = "https://salon-demo-reset.dpromstk2000.workers.dev";
+
     let currentDate = new Date();
     window.currentStaffs = [];
 
@@ -495,6 +521,12 @@
         box.innerHTML = text ? escapeHtml(text) : '';
     }
 
+    function setDemoResetMessage(text, type = '') {
+        const box = document.getElementById('demo-reset-message');
+        box.className = `message ${type}`;
+        box.innerHTML = text ? escapeHtml(text).replace(/\n/g, '<br>') : '';
+    }
+
     function initClosedDateInput() {
         const dateInput = document.getElementById('closed-date');
         dateInput.min = getTodayString();
@@ -511,6 +543,71 @@
         } else {
             area.style.display = 'none';
             btn.innerText = '⚙️ 店舗設定・スタッフ管理を開く ▼';
+        }
+    }
+
+    async function resetDemoData() {
+        if (!DEMO_RESET_WORKER_URL) {
+            alert('DEMOリセット用Worker URLが設定されていません。');
+            return;
+        }
+
+        const ok = confirm(
+            '営業前DEMOデータを作り直しますか？\n\n' +
+            '・DEMO予約を今日基準で作り直します\n' +
+            '・定休日は月曜日になります\n' +
+            '・火曜日に臨時休業日が入ります\n' +
+            '・あなたのLINE予約履歴はリセットされます'
+        );
+
+        if (!ok) return;
+
+        const password = prompt('DEMO準備パスワードを入力してください');
+
+        if (password === null) return;
+
+        const btn = document.getElementById('demo-reset-btn');
+
+        btn.disabled = true;
+        btn.innerText = 'DEMO準備中...';
+        setDemoResetMessage('DEMOデータを準備しています...', '');
+
+        try {
+            const response = await fetch(DEMO_RESET_WORKER_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-demo-reset-secret': password.trim()
+                },
+                body: JSON.stringify({})
+            });
+
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok || !result || result.ok === false) {
+                const detail = result?.error || result?.detail || '不明なエラー';
+                setDemoResetMessage('DEMO準備に失敗しました。\n' + JSON.stringify(detail), 'error');
+                return;
+            }
+
+            setDemoResetMessage(
+                '営業前DEMOデータを準備しました。\n本日・明日の予約件数、定休日、臨時休業日を更新しました。',
+                'success'
+            );
+
+            currentDate = new Date();
+
+            await loadSettings();
+            await fetchStaffs();
+            await fetchClosedDays();
+            await fetchQuickSummary();
+            await fetchBookings();
+
+        } catch (error) {
+            setDemoResetMessage('DEMO準備に失敗しました。\n' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '営業前DEMOを準備する';
         }
     }
 
@@ -590,7 +687,7 @@
         const isRegularHoliday = holidays.includes(String(date.getDay()));
 
         if (closedDay) {
-            noteEl.innerText = `臨時休業：${closedDay.reason || '理由なし'}`;
+            noteEl.innerText = `臨時休業：${(closedDay.reason || '理由なし').replace('【DEMO】', '')}`;
             return;
         }
 
@@ -668,7 +765,7 @@
             div.innerHTML = `
                 <div>
                     <div class="closed-date">${escapeHtml(formatDate(item.closed_date))}</div>
-                    <div class="closed-reason">${escapeHtml(item.reason || '理由なし')}</div>
+                    <div class="closed-reason">${escapeHtml((item.reason || '理由なし').replace('【DEMO】', ''))}</div>
                 </div>
                 <button class="delete-btn" onclick="deleteClosedDay(${item.id})">削除</button>
             `;
@@ -938,7 +1035,7 @@
                 if (bookedCount > 0) {
                     timeBookings.forEach(b => {
                         const memoHtml = b.memo
-                            ? `<span class="memo-text">📝 ${escapeHtml(b.memo)}</span>`
+                            ? `<span class="memo-text">📝 ${escapeHtml(b.memo.replace('【DEMO】', ''))}</span>`
                             : '';
 
                         html += `
@@ -980,7 +1077,7 @@
 
     function renderClosedDayView(bookings, closedDay, isRegularHoliday) {
         const reasonText = closedDay
-            ? `臨時休業日：${closedDay.reason || '理由なし'}`
+            ? `臨時休業日：${(closedDay.reason || '理由なし').replace('【DEMO】', '')}`
             : '定休日です';
 
         document.getElementById('daily-summary').innerText =
@@ -999,7 +1096,7 @@
             bookings.forEach(b => {
                 const time = b.start_datetime.substring(11, 16);
                 const memoHtml = b.memo
-                    ? `<span class="memo-text">📝 ${escapeHtml(b.memo)}</span>`
+                    ? `<span class="memo-text">📝 ${escapeHtml(b.memo.replace('【DEMO】', ''))}</span>`
                     : '';
 
                 html += `
