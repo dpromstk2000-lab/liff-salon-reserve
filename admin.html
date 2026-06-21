@@ -47,6 +47,55 @@
             color: var(--primary-brown);
         }
 
+        .quick-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 16px 0 18px;
+        }
+
+        .quick-card {
+            background: #fffaf8;
+            border: 1px solid #eadbd3;
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            line-height: 1.5;
+        }
+
+        .quick-card:hover {
+            background: #f7eee9;
+        }
+
+        .quick-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        .quick-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-brown);
+            margin: 4px 0;
+        }
+
+        .quick-note {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .quick-full {
+            grid-column: 1 / -1;
+            background: #faf8f5;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
         .toggle-btn {
             width: 100%;
             background: var(--bg-body);
@@ -295,6 +344,24 @@
 <div class="container">
     <h3>サロン予約管理</h3>
 
+    <div class="quick-summary">
+        <div class="quick-card" onclick="goToToday()">
+            <div class="quick-label">本日の予約</div>
+            <div id="today-count" class="quick-count">--件</div>
+            <div id="today-note" class="quick-note">読み込み中...</div>
+        </div>
+
+        <div class="quick-card" onclick="goToTomorrow()">
+            <div class="quick-label">明日の予約</div>
+            <div id="tomorrow-count" class="quick-count">--件</div>
+            <div id="tomorrow-note" class="quick-note">読み込み中...</div>
+        </div>
+
+        <div class="quick-full">
+            本日・明日の予約件数をすぐ確認できます。カードを押すと、その日の予約一覧に移動します。
+        </div>
+    </div>
+
     <button class="toggle-btn" onclick="toggleSettings()">⚙️ 店舗設定・スタッフ管理を開く ▼</button>
 
     <div id="settings-area">
@@ -378,6 +445,7 @@
         await loadSettings();
         await fetchStaffs();
         await fetchClosedDays();
+        await fetchQuickSummary();
     };
 
     function escapeHtml(value) {
@@ -399,6 +467,12 @@
 
     function getTodayString() {
         return toLocalDateString(new Date());
+    }
+
+    function getTomorrowString() {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return toLocalDateString(d);
     }
 
     function getTwoMonthsLaterString() {
@@ -464,6 +538,70 @@
         }
     }
 
+    async function fetchQuickSummary() {
+        const todayStr = getTodayString();
+        const tomorrowStr = getTomorrowString();
+
+        await Promise.all([
+            updateQuickCard(todayStr, 'today-count', 'today-note'),
+            updateQuickCard(tomorrowStr, 'tomorrow-count', 'tomorrow-note')
+        ]);
+    }
+
+    async function updateQuickCard(dateStr, countId, noteId) {
+        const countEl = document.getElementById(countId);
+        const noteEl = document.getElementById(noteId);
+
+        countEl.innerText = '--件';
+        noteEl.innerText = '読み込み中...';
+
+        const { data: bookings, error: bookingError } = await sbClient
+            .from('bookings')
+            .select('id')
+            .gte('start_datetime', `${dateStr}T00:00:00`)
+            .lte('start_datetime', `${dateStr}T23:59:59`);
+
+        if (bookingError) {
+            countEl.innerText = '--件';
+            noteEl.innerText = '取得失敗';
+            return;
+        }
+
+        const count = bookings ? bookings.length : 0;
+        countEl.innerText = `${count}件`;
+
+        const { data: setting } = await sbClient
+            .from('salon_settings')
+            .select('regular_holidays')
+            .eq('id', 1)
+            .single();
+
+        const { data: closedRows } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .eq('closed_date', dateStr)
+            .limit(1);
+
+        const closedDay = closedRows && closedRows.length > 0 ? closedRows[0] : null;
+
+        const [y, m, d] = dateStr.split('-');
+        const date = new Date(Number(y), Number(m) - 1, Number(d));
+        const holidays = setting?.regular_holidays ? setting.regular_holidays.split(',') : [];
+        const isRegularHoliday = holidays.includes(String(date.getDay()));
+
+        if (closedDay) {
+            noteEl.innerText = `臨時休業：${closedDay.reason || '理由なし'}`;
+            return;
+        }
+
+        if (isRegularHoliday) {
+            noteEl.innerText = '定休日';
+            return;
+        }
+
+        noteEl.innerText = `${formatDate(dateStr)}の予約`;
+    }
+
     async function saveSettings() {
         const checkedHolidays = Array.from(document.querySelectorAll('.hol-cb:checked'))
             .map(cb => cb.value)
@@ -484,7 +622,8 @@
         }
 
         alert('設定を保存しました');
-        fetchBookings();
+        await fetchBookings();
+        await fetchQuickSummary();
     }
 
     async function fetchClosedDays() {
@@ -587,6 +726,7 @@
 
         await fetchClosedDays();
         await fetchBookings();
+        await fetchQuickSummary();
     }
 
     async function deleteClosedDay(id) {
@@ -606,6 +746,7 @@
 
         await fetchClosedDays();
         await fetchBookings();
+        await fetchQuickSummary();
     }
 
     async function fetchStaffs() {
@@ -628,7 +769,8 @@
             </div>
         `).join('');
 
-        fetchBookings();
+        await fetchBookings();
+        await fetchQuickSummary();
     }
 
     async function addStaff() {
@@ -646,7 +788,7 @@
         }
 
         document.getElementById('new-staff-name').value = '';
-        fetchStaffs();
+        await fetchStaffs();
     }
 
     async function deleteStaff(id) {
@@ -662,7 +804,7 @@
             return;
         }
 
-        fetchStaffs();
+        await fetchStaffs();
     }
 
     async function addBooking(time) {
@@ -703,12 +845,24 @@
             return;
         }
 
-        fetchBookings();
+        await fetchBookings();
+        await fetchQuickSummary();
     }
 
     function changeDate(d) { 
         currentDate.setDate(currentDate.getDate() + d); 
         fetchBookings(); 
+    }
+
+    function goToToday() {
+        currentDate = new Date();
+        fetchBookings();
+    }
+
+    function goToTomorrow() {
+        currentDate = new Date();
+        currentDate.setDate(currentDate.getDate() + 1);
+        fetchBookings();
     }
 
     async function fetchBookings() {
@@ -819,7 +973,7 @@
         const remaining = totalSlots > 0 ? totalSlots - totalBooked : 0;
 
         document.getElementById('daily-summary').innerText =
-            `本日の予約：${totalBooked}件 / 残り空き枠：${remaining}枠`;
+            `この日の予約：${totalBooked}件 / 残り空き枠：${remaining}枠`;
         
         document.getElementById('booking-list').innerHTML = html;
     }
@@ -829,7 +983,8 @@
             ? `臨時休業日：${closedDay.reason || '理由なし'}`
             : '定休日です';
 
-        document.getElementById('daily-summary').innerText = reasonText;
+        document.getElementById('daily-summary').innerText =
+            `${reasonText} / 予約：${bookings.length}件`;
 
         let html = `
             <div class="closed-day-box">
@@ -876,7 +1031,8 @@
             return;
         }
 
-        fetchBookings();
+        await fetchBookings();
+        await fetchQuickSummary();
     }
 </script>
 </body>
