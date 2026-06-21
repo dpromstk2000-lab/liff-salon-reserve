@@ -28,6 +28,23 @@
         .danger-note { color:red; font-size:0.8em; margin-bottom:0; }
         .small-button { width:auto; margin-top:10px; padding:8px 12px; }
 
+        .holiday-notice {
+            background: #fffaf8;
+            border: 1px solid #eadbd3;
+            color: #6d4c41;
+            border-radius: 10px;
+            padding: 12px;
+            margin: 0 0 12px;
+            font-size: 0.88em;
+            line-height: 1.7;
+        }
+
+        .holiday-title {
+            font-weight: bold;
+            color: #5d4037;
+            margin-bottom: 4px;
+        }
+
         .line-contact-btn {
             background: #06c755;
             color: white;
@@ -89,6 +106,11 @@
 
     <label>予約希望日</label>
     <input type="date" id="select_date" class="input-box" onchange="renderTimeSlots()">
+
+    <div id="holiday-notice" class="holiday-notice">
+        <div class="holiday-title">休業日のご案内</div>
+        読み込み中...
+    </div>
     
     <label>備考（任意）</label>
     <div class="memo-template-buttons">
@@ -160,6 +182,35 @@
         return `${Number(m)}月${Number(d)}日 ${time}`;
     }
 
+    function formatDateWithWeek(dateStr) {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        const date = new Date(Number(y), Number(m) - 1, Number(d));
+        const weeks = ['日', '月', '火', '水', '木', '金', '土'];
+        return `${Number(m)}月${Number(d)}日（${weeks[date.getDay()]}）`;
+    }
+
+    function regularHolidayText(value) {
+        if (!value) return '設定なし';
+
+        const weekNames = {
+            '0': '日曜日',
+            '1': '月曜日',
+            '2': '火曜日',
+            '3': '水曜日',
+            '4': '木曜日',
+            '5': '金曜日',
+            '6': '土曜日'
+        };
+
+        return value
+            .split(',')
+            .filter(v => v !== '')
+            .map(v => `毎週${weekNames[v] || ''}`)
+            .filter(Boolean)
+            .join('、') || '設定なし';
+    }
+
     function applyMemoTemplate(text) {
         document.getElementById('customer_memo').value = text;
         document.getElementById('customer_memo').focus();
@@ -218,6 +269,8 @@
         dateInput.min = toLocalDateString(new Date());
         dateInput.max = getTwoMonthsLaterString();
 
+        await renderHolidayNotice();
+
         if (liff.isLoggedIn()) {
             const p = await liff.getProfile();
             lineUserId = p.userId;
@@ -230,6 +283,58 @@
         } else {
             liff.login();
         }
+    }
+
+    async function renderHolidayNotice() {
+        const notice = document.getElementById('holiday-notice');
+
+        notice.innerHTML = `
+            <div class="holiday-title">休業日のご案内</div>
+            読み込み中...
+        `;
+
+        const today = toLocalDateString(new Date());
+        const twoMonthsLater = getTwoMonthsLaterString();
+
+        const { data: setting, error: settingError } = await sbClient
+            .from('salon_settings')
+            .select('*')
+            .eq('id', 1)
+            .single();
+
+        const { data: closedDays, error: closedError } = await sbClient
+            .from('salon_closed_days')
+            .select('*')
+            .gte('closed_date', today)
+            .lte('closed_date', twoMonthsLater)
+            .order('closed_date', { ascending: true });
+
+        if (settingError || closedError) {
+            notice.innerHTML = `
+                <div class="holiday-title">休業日のご案内</div>
+                休業日の情報を取得できませんでした。
+            `;
+            return;
+        }
+
+        const regularText = regularHolidayText(setting?.regular_holidays || '');
+
+        let closedText = '直近2カ月以内の臨時休業はありません。';
+
+        if (closedDays && closedDays.length > 0) {
+            closedText = closedDays
+                .map(item => {
+                    const reason = item.reason ? `：${escapeHtml(item.reason.replace('【DEMO】', ''))}` : '';
+                    return `${formatDateWithWeek(item.closed_date)}${reason}`;
+                })
+                .join('<br>');
+        }
+
+        notice.innerHTML = `
+            <div class="holiday-title">休業日のご案内</div>
+            <div>定休日：${escapeHtml(regularText)}</div>
+            <div style="margin-top:4px;">臨時休業：<br>${closedText}</div>
+        `;
     }
 
     async function fetchStaffs() {
@@ -361,7 +466,7 @@
         }
 
         if (closedRows && closedRows.length > 0) {
-            const reason = closedRows[0].reason ? `\n理由：${closedRows[0].reason}` : '';
+            const reason = closedRows[0].reason ? `\n理由：${closedRows[0].reason.replace('【DEMO】', '')}` : '';
             return { ok: false, message: `この日は臨時休業です。${reason}` };
         }
 
@@ -547,7 +652,7 @@
 
         if (closedRows && closedRows.length > 0) {
             const reason = closedRows[0].reason
-                ? `<br>理由：${escapeHtml(closedRows[0].reason)}`
+                ? `<br>理由：${escapeHtml(closedRows[0].reason.replace('【DEMO】', ''))}`
                 : '';
 
             container.innerHTML = `
