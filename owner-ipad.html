@@ -203,6 +203,10 @@
       align-items: center;
     }
 
+    .date-input-wrap { display: grid; gap: 6px; }
+    .date-ja-label { color: var(--brown); font-size: 15px; font-weight: 1000; line-height: 1.35; background: #fff7f1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; display: inline-block; }
+    .field .date-ja-label { margin-top: 7px; border-radius: 14px; font-size: 14px; }
+
     .message {
       display: none;
       white-space: pre-wrap;
@@ -378,7 +382,10 @@
           </div>
 
           <div class="date-picker-row">
-            <input id="view-date" type="date" onchange="setViewDateFromInput()" />
+            <div class="date-input-wrap">
+              <input id="view-date" type="date" onchange="setViewDateFromInput()" />
+              <span id="view-date-ja" class="date-ja-label">日付を選択</span>
+            </div>
             <button class="btn-soft" onclick="setViewDateFromInput()">この日を見る</button>
           </div>
 
@@ -395,7 +402,8 @@
           <div class="form-grid">
             <div class="field">
               <label>予約日</label>
-              <input id="manual-date" type="date" />
+              <input id="manual-date" type="date" onchange="updateDateLabels()" />
+              <div id="manual-date-ja" class="date-ja-label">予約日を選択</div>
             </div>
             <div class="field">
               <label>時間</label>
@@ -477,7 +485,7 @@
       </aside>
     </div>
 
-    <div class="version">STEP SALON-BRUSH-3 / owner-ipad.html 新規追加 / シンプル版は変更なし</div>
+    <div class="version">STEP SALON-BRUSH-6 / owner-ipad.html 日付表示改善 / シンプル版は変更なし</div>
   </div>
 
   <script>
@@ -531,6 +539,7 @@
       document.getElementById('app-view').style.display = 'block';
       document.getElementById('view-date').value = toLocalDateString(viewDate);
       document.getElementById('manual-date').value = toLocalDateString(viewDate);
+      updateDateLabels();
       setDateLimits();
       await checkApi();
       await refreshAll();
@@ -633,6 +642,7 @@
       document.getElementById('view-date').value = dateStr;
       document.getElementById('manual-date').value = dateStr;
       document.getElementById('view-date-label').textContent = formatDateLabel(dateStr);
+      updateDateLabels();
 
       const list = document.getElementById('booking-list');
       list.innerHTML = '<div class="empty">予約を読み込み中...</div>';
@@ -825,6 +835,7 @@
       document.getElementById('manual-name').value = '';
       document.getElementById('manual-memo').value = '';
       document.getElementById('manual-time').value = '';
+      updateDateLabels();
       await refreshAll();
       scrollToTop();
     }
@@ -835,6 +846,7 @@
       document.getElementById('manual-name').value = '';
       document.getElementById('manual-staff').value = 'お任せ';
       document.getElementById('manual-memo').value = '';
+      updateDateLabels();
       hideMessage('manual-message');
     }
 
@@ -1036,6 +1048,15 @@
       if (!el) return;
       el.className = 'message';
       el.textContent = '';
+    }
+
+    function updateDateLabels() {
+      const viewValue = document.getElementById('view-date')?.value || '';
+      const manualValue = document.getElementById('manual-date')?.value || '';
+      const viewLabel = document.getElementById('view-date-ja');
+      const manualLabel = document.getElementById('manual-date-ja');
+      if (viewLabel) viewLabel.textContent = viewValue ? `${formatDateLabel(viewValue)} / ${viewValue}` : '日付を選択';
+      if (manualLabel) manualLabel.textContent = manualValue ? `${formatDateLabel(manualValue)} / ${manualValue}` : '予約日を選択';
     }
 
     function toLocalDateString(date) {
