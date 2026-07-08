@@ -177,7 +177,7 @@
         'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
     );
 
-    const STAFF_PASSWORD = "2026";
+    const STAFF_PASSWORD = "1234";
     let currentDate = new Date();
 
     function escapeHtml(value) {
@@ -221,10 +221,10 @@
     }
 
     async function init() {
-        const pass = prompt("パスワードを入力");
+        const pass = prompt("管理コードを入力してください");
 
         if (pass !== STAFF_PASSWORD) {
-            alert("パスワードが違います");
+            alert("管理コードが違います");
             return;
         }
 
