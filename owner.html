@@ -256,14 +256,26 @@
     }
 
     .copy-output {
-      background: #2f241f;
-      color: #fff9f5;
+      width: 100%;
+      background: #fffaf7;
+      color: var(--text);
+      border: 1px solid var(--line);
       border-radius: 14px;
       padding: 12px;
       font-size: 13px;
+      line-height: 1.75;
       white-space: pre-wrap;
       margin-top: 10px;
-      min-height: 82px;
+      min-height: 184px;
+      resize: vertical;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+    }
+
+    .copy-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     .slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
@@ -424,9 +436,17 @@
             <small>予約カードから作成</small>
           </div>
           <div id="copy-help" class="empty">予約カードの「文面作成」を押すと、ここにLINE文面が出ます。</div>
-          <div id="copy-output" class="copy-output" style="display:none;"></div>
+          <textarea id="copy-output" class="copy-output" style="display:none;" oninput="updateCurrentMessageFromEditor()" placeholder="ここにLINE文面が表示されます。表示後、この場で自由に編集できます。"></textarea>
+          <p class="copy-note">文面はこの場で編集できます。言い回しを直してからコピーしてください。</p>
           <div class="template-row">
-            <button class="btn-accent" onclick="copyCurrentMessage()">文面をコピー</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('early')">10分前案内</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('change')">変更確認</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('late')">遅れ連絡</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('thanks')">丁寧にする</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('first')">初回来店</button>
+          </div>
+          <div class="template-row">
+            <button class="btn-accent" onclick="copyCurrentMessage()">編集後の文面をコピー</button>
             <button class="btn-soft" onclick="clearMessageBox()">クリア</button>
           </div>
           <div id="copy-message" class="message"></div>
@@ -458,7 +478,7 @@
       </aside>
     </div>
 
-    <div class="version">STEP SALON-BRUSH-2 / owner.html 追加版 / シンプル版は変更なし</div>
+    <div class="version">STEP SALON-BRUSH-2B / owner.html 文面編集対応 / シンプル版は変更なし</div>
   </div>
 
   <script>
@@ -872,8 +892,9 @@
       document.getElementById('copy-help').style.display = 'none';
       const out = document.getElementById('copy-output');
       out.style.display = 'block';
-      out.textContent = currentMessage;
-      showMessage('copy-message', 'LINE文面を作成しました。コピーしてLINE公式から送れます。', 'ok');
+      out.value = currentMessage;
+      out.focus();
+      showMessage('copy-message', 'LINE文面を作成しました。この場で編集してからコピーできます。', 'ok');
     }
 
     async function getBookingById(id) {
@@ -959,18 +980,51 @@
       window.open(path, '_blank');
     }
 
-    async function copyCurrentMessage() {
-      if (!currentMessage) {
+    function updateCurrentMessageFromEditor() {
+      const out = document.getElementById('copy-output');
+      currentMessage = out && out.style.display !== 'none' ? out.value : currentMessage;
+    }
+
+    function insertMessageTemplate(type) {
+      const out = document.getElementById('copy-output');
+      if (!out || out.style.display === 'none') {
         showMessage('copy-message', '先に予約カードの「文面作成」を押してください。', 'err');
         return;
       }
-      await copyText(currentMessage, 'LINE文面をコピーしました。');
+
+      const templates = {
+        early: '当日は10分前を目安にお越しください。',
+        change: 'ご都合の変更やキャンセルがある場合は、お早めにLINEでお知らせください。',
+        late: '遅れそうな場合も、分かった時点でLINEにてご連絡ください。',
+        thanks: 'いつもご利用ありがとうございます。今回もよろしくお願いいたします。',
+        first: '初めてのご来店の場合は、少し早めにお越しいただけるとスムーズです。'
+      };
+
+      const text = templates[type] || '';
+      if (!text) return;
+
+      const current = out.value.trimEnd();
+      out.value = current ? `${current}\n${text}` : text;
+      currentMessage = out.value;
+      out.focus();
+      showMessage('copy-message', '文面に追記しました。必要に応じて編集してからコピーしてください。', 'ok');
+    }
+
+    async function copyCurrentMessage() {
+      const out = document.getElementById('copy-output');
+      const text = out && out.style.display !== 'none' ? out.value.trim() : currentMessage.trim();
+      if (!text) {
+        showMessage('copy-message', '先に予約カードの「文面作成」を押してください。', 'err');
+        return;
+      }
+      currentMessage = text;
+      await copyText(text, '編集後のLINE文面をコピーしました。');
     }
 
     function clearMessageBox() {
       currentMessage = '';
       document.getElementById('copy-output').style.display = 'none';
-      document.getElementById('copy-output').textContent = '';
+      document.getElementById('copy-output').value = '';
       document.getElementById('copy-help').style.display = 'block';
       hideMessage('copy-message');
     }
