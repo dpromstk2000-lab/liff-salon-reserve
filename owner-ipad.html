@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>DPROサロン LINE予約｜iPad用かんたん管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f6f0ea;
+      --card: #ffffff;
+      --soft: #fff8f3;
+      --text: #35221d;
+      --muted: #7d6b62;
+      --line: #eadbd3;
+      --brown: #4e342e;
+      --brown2: #6d4c41;
+      --accent: #a15c38;
+      --danger: #a23b31;
+      --ok: #2f6f4e;
+      --radius: 22px;
+      --shadow: 0 12px 30px rgba(62, 39, 35, .10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at top left, #fff7ef 0, var(--bg) 48%, #eee1d8 100%);
+      color: var(--text);
+      line-height: 1.65;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    button {
+      min-height: 54px;
+      border: none;
+      border-radius: 16px;
+      padding: 14px 18px;
+      background: var(--brown);
+      color: #fff;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 5px 12px rgba(78, 52, 46, .10);
+    }
+
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+
+    .btn-soft { background: #f3e7de; color: var(--brown); border: 1px solid var(--line); box-shadow: none; }
+    .btn-sub { background: #8d6e63; }
+    .btn-accent { background: var(--accent); }
+    .btn-ok { background: var(--ok); }
+    .btn-danger { background: var(--danger); }
+    .btn-wide { width: 100%; }
+
+    input, select, textarea {
+      width: 100%;
+      min-height: 54px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      color: var(--text);
+      padding: 13px 14px;
+      outline: none;
+      font-size: 17px;
+    }
+
+    textarea { min-height: 132px; resize: vertical; }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #c89470;
+      box-shadow: 0 0 0 4px rgba(161, 92, 56, .13);
+    }
+
+    .login-wrap {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .login-card {
+      width: min(620px, 100%);
+      background: rgba(255,255,255,.94);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 34px;
+    }
+
+    .login-card h1 { margin: 0 0 8px; font-size: 30px; color: var(--brown); }
+    .login-card p { margin: 0 0 22px; color: var(--muted); font-size: 16px; }
+    .login-row { display: grid; grid-template-columns: 1fr 160px; gap: 12px; }
+
+    .page {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 0;
+      background: linear-gradient(to bottom, rgba(246,240,234,.98), rgba(246,240,234,.88));
+      backdrop-filter: blur(8px);
+    }
+
+    .brand h1 { margin: 0; font-size: clamp(25px, 3.2vw, 38px); line-height: 1.18; color: var(--brown); }
+    .brand p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+    .top-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 48px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 10px 14px;
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 8px 0 14px;
+    }
+
+    .summary-card {
+      background: rgba(255,255,255,.95);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 8px 20px rgba(62,39,35,.06);
+    }
+
+    .summary-label { color: var(--muted); font-size: 14px; font-weight: 900; }
+    .summary-main { margin-top: 4px; color: var(--brown); font-size: 38px; font-weight: 1000; line-height: 1; }
+    .summary-note { margin-top: 8px; color: var(--muted); font-size: 14px; }
+
+    .panel {
+      background: rgba(255,255,255,.95);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 8px 22px rgba(62,39,35,.07);
+      margin-bottom: 14px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title h2 { margin: 0; font-size: 23px; color: var(--brown); }
+    .panel-title small { color: var(--muted); font-weight: 800; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .quick-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .date-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .date-picker-row {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .message {
+      display: none;
+      white-space: pre-wrap;
+      border-radius: 16px;
+      padding: 13px 14px;
+      margin: 10px 0;
+      font-weight: 800;
+    }
+    .message.show { display: block; }
+    .message.info { background: #fff7ed; border: 1px solid #ecd7c5; color: #6d4c41; }
+    .message.ok { background: #edf7f0; border: 1px solid #c6e4cf; color: #286342; }
+    .message.err { background: #fff0ee; border: 1px solid #efc7c0; color: #963429; }
+
+    .booking-list { display: grid; gap: 12px; }
+
+    .booking-card {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 14px;
+      background: #fffdfb;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 14px;
+    }
+
+    .time-box {
+      min-height: 110px;
+      border-radius: 18px;
+      background: #f1e4db;
+      color: var(--brown);
+      display: grid;
+      place-items: center;
+      font-size: 30px;
+      font-weight: 1000;
+      text-align: center;
+    }
+
+    .booking-name { font-size: 22px; font-weight: 1000; color: var(--brown); }
+    .booking-meta { color: var(--muted); font-size: 15px; margin-top: 2px; }
+    .booking-memo { margin: 10px 0; background: #f8f0ea; color: var(--muted); border-radius: 14px; padding: 10px 12px; font-size: 15px; }
+    .booking-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .booking-actions button { min-height: 48px; padding: 11px 13px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field label {
+      display: block;
+      margin: 0 0 6px;
+      color: var(--brown);
+      font-weight: 1000;
+      font-size: 15px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+    .chip-row button { min-height: 42px; padding: 9px 12px; font-size: 14px; border-radius: 999px; }
+
+    .copy-output { min-height: 260px; font-size: 17px; line-height: 1.7; }
+    .copy-note { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+
+    .link-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .link-grid a {
+      min-height: 56px;
+      display: grid;
+      place-items: center;
+      text-decoration: none;
+      color: var(--brown);
+      background: #f3e7de;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      font-weight: 1000;
+    }
+
+    .empty {
+      border: 1px dashed #d9c5ba;
+      background: #fffaf6;
+      color: var(--muted);
+      border-radius: 18px;
+      padding: 18px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .version { text-align: center; color: var(--muted); font-size: 12px; padding: 26px 0 12px; }
+
+    @media (max-width: 920px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(3, 1fr); }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .top-actions { justify-content: flex-start; }
+    }
+
+    @media (max-width: 680px) {
+      .page { padding: 12px; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .quick-row { grid-template-columns: 1fr 1fr; }
+      .date-row, .date-picker-row, .form-grid, .login-row { grid-template-columns: 1fr; }
+      .booking-card { grid-template-columns: 1fr; }
+      .time-box { min-height: 64px; }
+      .link-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="login-view" class="login-wrap">
+    <div class="login-card">
+      <h1>サロン予約 iPad用</h1>
+      <p>店頭や施術スペースで使う、ボタン大きめのかんたん画面です。シンプル版・PC版はそのまま残しています。</p>
+      <div class="login-row">
+        <input id="admin-code" type="password" inputmode="numeric" placeholder="管理コード 1234" autocomplete="off" />
+        <button onclick="loginOwner()">開く</button>
+      </div>
+      <div id="login-message" class="message err"></div>
+    </div>
+  </div>
+
+  <div id="app-view" class="page" style="display:none;">
+    <div class="topbar">
+      <div class="brand">
+        <h1>サロン予約 iPad管理</h1>
+        <p>今日の予約・次の予定・LINE連絡文面を、店頭で迷わず確認できます。</p>
+      </div>
+      <div class="top-actions">
+        <span id="api-status" class="status-pill">API確認中...</span>
+        <button class="btn-soft" onclick="openUrl('owner.html')">PC版</button>
+        <button class="btn-soft" onclick="openUrl('admin.html')">シンプル管理</button>
+        <button class="btn-soft" onclick="logoutOwner()">ログアウト</button>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">今日の予約</div>
+        <div class="summary-main" id="today-count">--</div>
+        <div class="summary-note" id="today-note">読み込み中</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">次営業日の予約</div>
+        <div class="summary-main" id="next-count">--</div>
+        <div class="summary-note" id="next-note">読み込み中</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">今後の予約</div>
+        <div class="summary-main" id="future-count">--</div>
+        <div class="summary-note">今日以降の予約数</div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <main>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>予約確認</h2>
+            <small id="view-date-label">今日</small>
+          </div>
+
+          <div class="quick-row">
+            <button class="btn-accent" onclick="goToday()">今日</button>
+            <button class="btn-sub" onclick="goTomorrow()">明日</button>
+            <button class="btn-sub" onclick="goNextBusinessDay()">次営業日</button>
+            <button class="btn-soft" onclick="refreshAll()">更新</button>
+          </div>
+
+          <div class="date-row">
+            <button class="btn-soft" onclick="moveDate(-1)">← 前日</button>
+            <button class="btn-soft" onclick="moveDate(1)">翌日 →</button>
+            <button class="btn-soft" onclick="scrollToManualForm()">＋ 予約追加</button>
+          </div>
+
+          <div class="date-picker-row">
+            <input id="view-date" type="date" onchange="setViewDateFromInput()" />
+            <button class="btn-soft" onclick="setViewDateFromInput()">この日を見る</button>
+          </div>
+
+          <div id="date-status" class="message info show">読み込み中...</div>
+          <div id="booking-list" class="booking-list"></div>
+        </section>
+
+        <section class="panel" id="manual-section">
+          <div class="panel-title">
+            <h2>電話・店頭予約</h2>
+            <small>LINE以外の予約を追加</small>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>予約日</label>
+              <input id="manual-date" type="date" />
+            </div>
+            <div class="field">
+              <label>時間</label>
+              <select id="manual-time"></select>
+            </div>
+            <div class="field">
+              <label>お客様名</label>
+              <input id="manual-name" type="text" placeholder="山田 花子" />
+            </div>
+            <div class="field">
+              <label>担当</label>
+              <select id="manual-staff"></select>
+            </div>
+            <div class="field full">
+              <label>メモ</label>
+              <div class="chip-row">
+                <button class="btn-soft" onclick="addMemoTemplate('カット希望')">カット</button>
+                <button class="btn-soft" onclick="addMemoTemplate('カラー相談')">カラー</button>
+                <button class="btn-soft" onclick="addMemoTemplate('初回来店')">初回</button>
+                <button class="btn-soft" onclick="addMemoTemplate('電話予約')">電話予約</button>
+              </div>
+              <textarea id="manual-memo" placeholder="メニュー・希望・注意点など"></textarea>
+            </div>
+          </div>
+
+          <div class="quick-row" style="margin-top:12px;">
+            <button class="btn-ok" id="manual-save" onclick="addManualBooking()">予約を追加</button>
+            <button class="btn-soft" onclick="clearManualForm()">入力クリア</button>
+            <button class="btn-soft" onclick="goToday()">今日へ</button>
+            <button class="btn-soft" onclick="scrollToTop()">上へ</button>
+          </div>
+          <div id="manual-message" class="message"></div>
+        </section>
+      </main>
+
+      <aside>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>LINE文面</h2>
+            <small>編集してコピー</small>
+          </div>
+          <div id="copy-help" class="empty">予約カードの「文面作成」を押すと、ここにLINE文面が出ます。</div>
+          <textarea id="copy-output" class="copy-output" style="display:none;" oninput="updateCurrentMessageFromEditor()" placeholder="ここにLINE文面が表示されます。表示後、この場で編集できます。"></textarea>
+          <p class="copy-note">文面はこの場で編集できます。必要な一言を足してからコピーしてください。</p>
+          <div class="chip-row">
+            <button class="btn-soft" onclick="insertMessageTemplate('early')">10分前案内</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('change')">変更確認</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('late')">遅れ連絡</button>
+            <button class="btn-soft" onclick="insertMessageTemplate('first')">初回来店</button>
+          </div>
+          <div class="quick-row" style="grid-template-columns: 1fr 1fr;">
+            <button class="btn-accent" onclick="copyCurrentMessage()">文面コピー</button>
+            <button class="btn-soft" onclick="clearMessageBox()">クリア</button>
+          </div>
+          <div id="copy-message" class="message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>営業前DEMO</h2>
+            <small>管理コード 1234</small>
+          </div>
+          <button class="btn-accent btn-wide" id="reset-btn" onclick="resetDemoData()">営業前DEMOを準備する</button>
+          <div id="reset-message" class="message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>画面リンク</h2>
+            <small>使い分け</small>
+          </div>
+          <div class="link-grid">
+            <a href="index.html" target="_blank">お客様予約</a>
+            <a href="owner.html" target="_blank">PC版オーナー</a>
+            <a href="admin.html" target="_blank">シンプル管理</a>
+            <a href="staff.html" target="_blank">スタッフ確認</a>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <div class="version">STEP SALON-BRUSH-3 / owner-ipad.html 新規追加 / シンプル版は変更なし</div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
+    const API_BASE_URL = 'https://dpro-salon-line-api.dpromstk2000.workers.dev';
+    const ADMIN_CODE = '1234';
+    const SESSION_KEY = 'dpro_salon_owner_ipad_auth_ok';
+
+    const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let viewDate = new Date();
+    let settings = null;
+    let staffs = [];
+    let nextBusinessDate = '';
+    let currentMessage = '';
+
+    window.addEventListener('load', () => {
+      const codeInput = document.getElementById('admin-code');
+      codeInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') loginOwner();
+      });
+
+      if (sessionStorage.getItem(SESSION_KEY) === 'yes') {
+        openOwner();
+      }
+    });
+
+    function loginOwner() {
+      const input = document.getElementById('admin-code');
+      const value = (input.value || '').trim();
+
+      if (value !== ADMIN_CODE) {
+        showMessage('login-message', '管理コードが違います。', 'err');
+        input.focus();
+        input.select();
+        return;
+      }
+
+      sessionStorage.setItem(SESSION_KEY, 'yes');
+      openOwner();
+    }
+
+    function logoutOwner() {
+      sessionStorage.removeItem(SESSION_KEY);
+      location.reload();
+    }
+
+    async function openOwner() {
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('app-view').style.display = 'block';
+      document.getElementById('view-date').value = toLocalDateString(viewDate);
+      document.getElementById('manual-date').value = toLocalDateString(viewDate);
+      setDateLimits();
+      await checkApi();
+      await refreshAll();
+    }
+
+    async function refreshAll() {
+      try {
+        await loadSettings();
+        await loadStaffs();
+        renderManualStaffOptions();
+        renderTimeOptions();
+        await loadSummary();
+        await loadBookingsForViewDate();
+      } catch (error) {
+        showMessage('date-status', error.message || String(error), 'err');
+      }
+    }
+
+    function setDateLimits() {
+      const min = getTodayString();
+      const max = getTwoMonthsLaterString();
+      ['view-date', 'manual-date'].forEach(id => {
+        const el = document.getElementById(id);
+        el.min = min;
+        el.max = max;
+      });
+    }
+
+    async function checkApi() {
+      const status = document.getElementById('api-status');
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/health`);
+        const data = await res.json();
+        status.textContent = data.ok ? '統合API OK' : 'API確認エラー';
+      } catch (error) {
+        status.textContent = 'API未確認';
+      }
+    }
+
+    async function loadSettings() {
+      const { data, error } = await sbClient
+        .from('salon_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      if (error) throw new Error('店舗設定の取得に失敗しました: ' + error.message);
+      settings = data || { open_time: '10:00', close_time: '19:00', regular_holidays: '' };
+    }
+
+    async function loadStaffs() {
+      const { data, error } = await sbClient
+        .from('staffs')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) throw new Error('スタッフ取得に失敗しました: ' + error.message);
+      staffs = data || [];
+    }
+
+    async function loadSummary() {
+      const today = getTodayString();
+      nextBusinessDate = await findNextBusinessDateString();
+
+      const todayBookings = await getBookingsByDate(today);
+      document.getElementById('today-count').textContent = String(todayBookings.length);
+      document.getElementById('today-note').textContent = formatDateLabel(today);
+
+      if (nextBusinessDate) {
+        const nextBookings = await getBookingsByDate(nextBusinessDate);
+        document.getElementById('next-count').textContent = String(nextBookings.length);
+        document.getElementById('next-note').textContent = formatDateLabel(nextBusinessDate);
+      } else {
+        document.getElementById('next-count').textContent = '--';
+        document.getElementById('next-note').textContent = '次営業日なし';
+      }
+
+      const { data: futureRows, error } = await sbClient
+        .from('bookings')
+        .select('id')
+        .gte('start_datetime', `${today}T00:00:00`);
+
+      document.getElementById('future-count').textContent = error ? '--' : String((futureRows || []).length);
+    }
+
+    async function getBookingsByDate(dateStr) {
+      const { data, error } = await sbClient
+        .from('bookings')
+        .select('*')
+        .gte('start_datetime', `${dateStr}T00:00:00`)
+        .lte('start_datetime', `${dateStr}T23:59:59`)
+        .order('start_datetime', { ascending: true });
+
+      if (error) throw new Error('予約取得に失敗しました: ' + error.message);
+      return data || [];
+    }
+
+    async function loadBookingsForViewDate() {
+      const dateStr = toLocalDateString(viewDate);
+      document.getElementById('view-date').value = dateStr;
+      document.getElementById('manual-date').value = dateStr;
+      document.getElementById('view-date-label').textContent = formatDateLabel(dateStr);
+
+      const list = document.getElementById('booking-list');
+      list.innerHTML = '<div class="empty">予約を読み込み中...</div>';
+
+      const dayStatus = await getDateStatus(dateStr);
+      const bookings = await getBookingsByDate(dateStr);
+      renderDateStatus(dateStr, dayStatus, bookings.length);
+
+      if (!bookings.length) {
+        list.innerHTML = '<div class="empty">この日の予約はまだありません。電話・店頭予約は下のフォームから追加できます。</div>';
+        return;
+      }
+
+      list.innerHTML = bookings.map(booking => bookingCardHtml(booking)).join('');
+    }
+
+    function renderDateStatus(dateStr, status, count) {
+      const label = formatDateLabel(dateStr);
+      if (status.closed) {
+        showMessage('date-status', `${label}：${status.reason} / 予約 ${count}件`, 'err');
+      } else {
+        showMessage('date-status', `${label}：営業日 / 予約 ${count}件`, 'info');
+      }
+    }
+
+    function bookingCardHtml(booking) {
+      const time = getTimeFromDatetime(booking.start_datetime);
+      const name = escapeHtml(booking.customer_name || '未入力');
+      const staff = escapeHtml(booking.staff_name || 'お任せ');
+      const memo = booking.memo ? escapeHtml(String(booking.memo).replace('【DEMO】', '')) : 'メモなし';
+      const lineId = booking.line_user_id || '';
+      const source = lineId === 'manual_booking' || lineId === 'owner_manual_booking' || lineId === 'owner_ipad_manual_booking' ? '電話・店頭予約' : 'LINE予約';
+
+      return `
+        <div class="booking-card">
+          <div class="time-box">${escapeHtml(time)}</div>
+          <div>
+            <div class="booking-name">${name} 様</div>
+            <div class="booking-meta">担当：${staff} / ${escapeHtml(source)}</div>
+            <div class="booking-memo">📝 ${memo}</div>
+            <div class="booking-actions">
+              <button class="btn-accent" onclick="makeLineMessage(${booking.id})">文面作成</button>
+              <button class="btn-soft" onclick="copyText('${escapeAttr(booking.customer_name || '')}', 'お客様名をコピーしました。')">名前コピー</button>
+              <button class="btn-soft" onclick="fillManualFromBooking(${booking.id})">同じ内容で予約</button>
+              <button class="btn-danger" onclick="deleteBooking(${booking.id})">削除</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function findNextBusinessDateString() {
+      const today = new Date();
+      const closedSet = await getClosedSet(getTomorrowString(), getTwoMonthsLaterString());
+      const holidays = getRegularHolidayArray();
+
+      for (let i = 1; i <= 60; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+        const dateStr = toLocalDateString(d);
+        if (holidays.includes(String(d.getDay()))) continue;
+        if (closedSet.has(dateStr)) continue;
+        return dateStr;
+      }
+      return '';
+    }
+
+    async function getClosedSet(startDate, endDate) {
+      const { data, error } = await sbClient
+        .from('salon_closed_days')
+        .select('closed_date')
+        .gte('closed_date', startDate)
+        .lte('closed_date', endDate);
+
+      if (error) return new Set();
+      return new Set((data || []).map(row => row.closed_date));
+    }
+
+    async function getDateStatus(dateStr) {
+      const holidays = getRegularHolidayArray();
+      const date = parseLocalDate(dateStr);
+
+      const { data: closedRows } = await sbClient
+        .from('salon_closed_days')
+        .select('*')
+        .eq('closed_date', dateStr)
+        .limit(1);
+
+      if (closedRows && closedRows.length) {
+        return { closed: true, reason: `臨時休業：${String(closedRows[0].reason || '理由なし').replace('【DEMO】', '')}` };
+      }
+
+      if (holidays.includes(String(date.getDay()))) {
+        return { closed: true, reason: '定休日' };
+      }
+
+      return { closed: false, reason: '' };
+    }
+
+    function getRegularHolidayArray() {
+      return settings?.regular_holidays ? settings.regular_holidays.split(',').filter(Boolean) : [];
+    }
+
+    function renderManualStaffOptions() {
+      const select = document.getElementById('manual-staff');
+      select.innerHTML = '<option value="お任せ">お任せ</option>';
+      staffs.forEach(staff => {
+        const opt = document.createElement('option');
+        opt.value = staff.name;
+        opt.textContent = staff.name;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderTimeOptions() {
+      const select = document.getElementById('manual-time');
+      const times = buildTimeSlots();
+      select.innerHTML = '<option value="">時間を選択</option>' + times.map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+
+    function buildTimeSlots() {
+      const open = settings?.open_time || '10:00';
+      const close = settings?.close_time || '19:00';
+      const [oh, om] = open.split(':').map(Number);
+      const [ch, cm] = close.split(':').map(Number);
+      const start = oh * 60 + (om || 0);
+      const end = ch * 60 + (cm || 0);
+      const slots = [];
+      for (let min = start; min < end; min += 30) {
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      }
+      return slots;
+    }
+
+    function addMemoTemplate(text) {
+      const memo = document.getElementById('manual-memo');
+      const current = memo.value.trim();
+      memo.value = current ? `${current} / ${text}` : text;
+      memo.focus();
+    }
+
+    async function addManualBooking() {
+      const btn = document.getElementById('manual-save');
+      const dateStr = document.getElementById('manual-date').value;
+      const time = document.getElementById('manual-time').value;
+      const name = document.getElementById('manual-name').value.trim();
+      const staff = document.getElementById('manual-staff').value || 'お任せ';
+      const memo = document.getElementById('manual-memo').value.trim();
+
+      hideMessage('manual-message');
+
+      if (!dateStr || !time || !name) {
+        showMessage('manual-message', '予約日・時間・お客様名を入力してください。', 'err');
+        return;
+      }
+
+      if (dateStr < getTodayString() || dateStr > getTwoMonthsLaterString()) {
+        showMessage('manual-message', '予約日は今日から直近2カ月以内で選択してください。', 'err');
+        return;
+      }
+
+      const status = await getDateStatus(dateStr);
+      if (status.closed) {
+        showMessage('manual-message', `この日は予約を追加できません。\n${status.reason}`, 'err');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '追加中...';
+
+      const { error } = await sbClient.from('bookings').insert({
+        customer_name: name,
+        memo: memo,
+        staff_name: staff,
+        start_datetime: `${dateStr}T${time}:00`,
+        line_user_id: 'owner_ipad_manual_booking'
+      });
+
+      btn.disabled = false;
+      btn.textContent = '予約を追加';
+
+      if (error) {
+        showMessage('manual-message', '予約追加に失敗しました。\n' + error.message, 'err');
+        return;
+      }
+
+      showMessage('manual-message', `${formatDateLabel(dateStr)} ${time} に予約を追加しました。`, 'ok');
+      viewDate = parseLocalDate(dateStr);
+      document.getElementById('manual-name').value = '';
+      document.getElementById('manual-memo').value = '';
+      document.getElementById('manual-time').value = '';
+      await refreshAll();
+      scrollToTop();
+    }
+
+    function clearManualForm() {
+      document.getElementById('manual-date').value = toLocalDateString(viewDate);
+      document.getElementById('manual-time').value = '';
+      document.getElementById('manual-name').value = '';
+      document.getElementById('manual-staff').value = 'お任せ';
+      document.getElementById('manual-memo').value = '';
+      hideMessage('manual-message');
+    }
+
+    async function deleteBooking(id) {
+      if (!confirm('この予約を削除しますか？')) return;
+      const { error } = await sbClient.from('bookings').delete().eq('id', id);
+      if (error) {
+        alert('予約削除に失敗しました: ' + error.message);
+        return;
+      }
+      await refreshAll();
+    }
+
+    async function makeLineMessage(id) {
+      const booking = await getBookingById(id);
+      if (!booking) return;
+
+      const time = formatDateTimeForMessage(booking.start_datetime);
+      const name = booking.customer_name || 'お客様';
+      const staff = booking.staff_name || 'お任せ';
+      const memo = booking.memo ? `\nご要望：${String(booking.memo).replace('【DEMO】', '')}` : '';
+
+      currentMessage = `${name}様\n\nご予約内容の確認です。\n日時：${time}\n担当：${staff}${memo}\n\n変更やキャンセルがある場合は、お早めにLINEでお知らせください。\n当日はお気をつけてお越しください。`;
+
+      document.getElementById('copy-help').style.display = 'none';
+      const out = document.getElementById('copy-output');
+      out.style.display = 'block';
+      out.value = currentMessage;
+      out.focus();
+      showMessage('copy-message', 'LINE文面を作成しました。編集してからコピーできます。', 'ok');
+      document.getElementById('copy-output').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function getBookingById(id) {
+      const { data, error } = await sbClient
+        .from('bookings')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        alert('予約取得に失敗しました: ' + error.message);
+        return null;
+      }
+      return data;
+    }
+
+    async function fillManualFromBooking(id) {
+      const booking = await getBookingById(id);
+      if (!booking) return;
+      document.getElementById('manual-date').value = toLocalDateString(viewDate);
+      document.getElementById('manual-name').value = booking.customer_name || '';
+      document.getElementById('manual-staff').value = booking.staff_name || 'お任せ';
+      document.getElementById('manual-memo').value = booking.memo ? String(booking.memo).replace('【DEMO】', '') : '';
+      showMessage('manual-message', '同じお客様の予約追加用に入力しました。日付と時間を確認してください。', 'info');
+      scrollToManualForm();
+    }
+
+    async function resetDemoData() {
+      const btn = document.getElementById('reset-btn');
+      if (!confirm('営業前DEMOデータを準備しますか？')) return;
+
+      btn.disabled = true;
+      btn.textContent = '準備中...';
+      hideMessage('reset-message');
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/demo-reset`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-demo-reset-secret': ADMIN_CODE
+          },
+          body: '{}'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'DEMOリセットに失敗しました。');
+        showMessage('reset-message', data.message || '営業前DEMOデータを準備しました。', 'ok');
+        await refreshAll();
+      } catch (error) {
+        showMessage('reset-message', 'DEMO準備に失敗しました。\n' + error.message, 'err');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '営業前DEMOを準備する';
+      }
+    }
+
+    function updateCurrentMessageFromEditor() {
+      const out = document.getElementById('copy-output');
+      currentMessage = out && out.style.display !== 'none' ? out.value : currentMessage;
+    }
+
+    function insertMessageTemplate(type) {
+      const out = document.getElementById('copy-output');
+      if (!out || out.style.display === 'none') {
+        showMessage('copy-message', '先に予約カードの「文面作成」を押してください。', 'err');
+        return;
+      }
+
+      const templates = {
+        early: '当日は10分前を目安にお越しください。',
+        change: 'ご都合の変更やキャンセルがある場合は、お早めにLINEでお知らせください。',
+        late: '遅れそうな場合も、分かった時点でLINEにてご連絡ください。',
+        first: '初めてのご来店の場合は、少し早めにお越しいただけるとスムーズです。'
+      };
+
+      const text = templates[type] || '';
+      if (!text) return;
+
+      const current = out.value.trimEnd();
+      out.value = current ? `${current}\n${text}` : text;
+      currentMessage = out.value;
+      out.focus();
+      showMessage('copy-message', '文面に追記しました。編集してからコピーできます。', 'ok');
+    }
+
+    async function copyCurrentMessage() {
+      const out = document.getElementById('copy-output');
+      const text = out && out.style.display !== 'none' ? out.value.trim() : currentMessage.trim();
+      if (!text) {
+        showMessage('copy-message', '先に予約カードの「文面作成」を押してください。', 'err');
+        return;
+      }
+      currentMessage = text;
+      await copyText(text, '編集後のLINE文面をコピーしました。');
+    }
+
+    function clearMessageBox() {
+      currentMessage = '';
+      document.getElementById('copy-output').style.display = 'none';
+      document.getElementById('copy-output').value = '';
+      document.getElementById('copy-help').style.display = 'block';
+      hideMessage('copy-message');
+    }
+
+    async function copyText(text, successMessage) {
+      try {
+        await navigator.clipboard.writeText(text || '');
+        showMessage('copy-message', successMessage || 'コピーしました。', 'ok');
+      } catch (error) {
+        alert('コピーできませんでした。手動で選択してコピーしてください。');
+      }
+    }
+
+    function moveDate(days) {
+      viewDate.setDate(viewDate.getDate() + days);
+      loadBookingsForViewDate();
+    }
+
+    function setViewDateFromInput() {
+      const value = document.getElementById('view-date').value;
+      if (!value) return;
+      viewDate = parseLocalDate(value);
+      loadBookingsForViewDate();
+    }
+
+    function goToday() {
+      viewDate = new Date();
+      loadBookingsForViewDate();
+    }
+
+    function goTomorrow() {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      viewDate = d;
+      loadBookingsForViewDate();
+    }
+
+    function goNextBusinessDay() {
+      if (!nextBusinessDate) {
+        alert('次営業日を取得できませんでした。');
+        return;
+      }
+      viewDate = parseLocalDate(nextBusinessDate);
+      loadBookingsForViewDate();
+    }
+
+    function openUrl(path) {
+      window.open(path, '_blank');
+    }
+
+    function scrollToManualForm() {
+      document.getElementById('manual-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showMessage(id, text, type = 'info') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = `message show ${type}`;
+      el.textContent = text;
+    }
+
+    function hideMessage(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = 'message';
+      el.textContent = '';
+    }
+
+    function toLocalDateString(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function parseLocalDate(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function getTodayString() {
+      return toLocalDateString(new Date());
+    }
+
+    function getTomorrowString() {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return toLocalDateString(d);
+    }
+
+    function getTwoMonthsLaterString() {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 2);
+      return toLocalDateString(d);
+    }
+
+    function formatDateLabel(dateStr) {
+      if (!dateStr) return '';
+      const date = parseLocalDate(dateStr);
+      const days = ['日', '月', '火', '水', '木', '金', '土'];
+      const [, m, d] = dateStr.split('-');
+      return `${Number(m)}月${Number(d)}日（${days[date.getDay()]}）`;
+    }
+
+    function getTimeFromDatetime(value) {
+      if (!value) return '--:--';
+      const t = value.includes('T') ? value.split('T')[1] : value;
+      return t.substring(0, 5);
+    }
+
+    function formatDateTimeForMessage(value) {
+      if (!value) return '日時未設定';
+      const [datePart, timePart = ''] = value.split('T');
+      return `${formatDateLabel(datePart)} ${timePart.substring(0, 5)}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[char]));
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? '').replace(/[\\'"\n\r]/g, char => ({
+        '\\': '\\\\',
+        "'": "\\'",
+        '"': '&quot;',
+        '\n': ' ',
+        '\r': ' '
+      }[char] || ' '));
+    }
+  </script>
+</body>
+</html>
