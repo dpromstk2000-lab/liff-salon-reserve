@@ -445,8 +445,20 @@
     </style>
 </head>
 <body>
-<div class="container">
+<div id="admin-login" class="login-card">
+    <div class="login-title">サロン予約 管理画面</div>
+    <div class="login-note">管理コードを入力してください。<br>他のDEMOと同じく、管理コードは <strong>1234</strong> に統一しています。</div>
+    <input id="admin-code-input" class="login-input" type="password" inputmode="numeric" autocomplete="off" placeholder="管理コード">
+    <button class="login-button" onclick="submitAdminCode()">管理画面を開く</button>
+    <div id="admin-code-error" class="login-error"></div>
+</div>
+
+<div class="container" id="admin-content" style="display:none;">
     <h3>サロン予約管理</h3>
+    <div class="admin-toolbar">
+        <span>管理コード認証済み</span>
+        <button class="logout-button" onclick="logoutAdmin()">ロックする</button>
+    </div>
 
     <div class="quick-summary">
         <div class="quick-card" onclick="goToToday()">
@@ -607,19 +619,62 @@
     );
 
     const DEMO_RESET_WORKER_URL = "https://salon-demo-reset.dpromstk2000.workers.dev";
+    const ADMIN_CODE = "1234";
+    const ADMIN_SESSION_KEY = "dpro_salon_admin_auth_ok";
 
     let currentDate = new Date();
     let nextBusinessDateString = "";
     window.currentStaffs = [];
 
-    window.onload = async () => {
+    window.onload = () => {
+        initAdminGate();
+    };
+
+    function initAdminGate() {
+        const input = document.getElementById('admin-code-input');
+
+        input?.addEventListener('keydown', event => {
+            if (event.key === 'Enter') submitAdminCode();
+        });
+
+        if (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'yes') {
+            openAdminContent();
+        }
+    }
+
+    function submitAdminCode() {
+        const input = document.getElementById('admin-code-input');
+        const errorBox = document.getElementById('admin-code-error');
+        const value = (input?.value || '').trim();
+
+        if (value !== ADMIN_CODE) {
+            errorBox.textContent = '管理コードが違います。';
+            input?.focus();
+            input?.select();
+            return;
+        }
+
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'yes');
+        errorBox.textContent = '';
+        openAdminContent();
+    }
+
+    async function openAdminContent() {
+        document.getElementById('admin-login').style.display = 'none';
+        document.getElementById('admin-content').style.display = 'block';
+
         initClosedDateInput();
         initManualDateInput();
         await loadSettings();
         await fetchStaffs();
         await fetchClosedDays();
         await fetchQuickSummary();
-    };
+    }
+
+    function logoutAdmin() {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        location.reload();
+    }
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, char => ({
@@ -727,9 +782,7 @@
 
         if (!ok) return;
 
-        const password = prompt('DEMO準備パスワードを入力してください');
-
-        if (password === null) return;
+        const password = ADMIN_CODE;
 
         const btn = document.getElementById('demo-reset-btn');
 
