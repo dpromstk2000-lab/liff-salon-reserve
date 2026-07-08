@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DPRO サロン予約 営業デモガイド</title>
+  <style>
+    :root{
+      --bg:#f6efe8;
+      --card:#fffaf6;
+      --card2:#ffffff;
+      --text:#3f2b25;
+      --muted:#8d746a;
+      --line:#eadbd2;
+      --accent:#a8623d;
+      --accent2:#6d3f31;
+      --good:#2f7d55;
+      --warn:#bd7a2a;
+      --danger:#a9352d;
+      --soft:#f1e3da;
+      --shadow:0 14px 40px rgba(74,43,31,.10);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:linear-gradient(180deg,#fbf5ef 0%,#f2e7de 100%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7}
+    body{min-height:100vh;padding:24px}
+    .wrap{max-width:1180px;margin:0 auto 80px}
+    header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:18px}
+    h1{font-size:34px;line-height:1.2;margin:0 0 6px;letter-spacing:.02em}
+    .sub{color:var(--muted);font-weight:700}
+    .pillbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 16px;font-weight:800;color:var(--accent2);box-shadow:0 4px 14px rgba(74,43,31,.06)}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:start}
+    .card{background:rgba(255,250,246,.94);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+    .card h2{font-size:22px;margin:0 0 12px;border-bottom:2px solid var(--line);padding-bottom:10px}
+    .card h3{font-size:17px;margin:18px 0 8px;color:var(--accent2)}
+    .lead{font-size:16px;font-weight:800;color:var(--accent2);margin:0 0 10px}
+    .small{font-size:13px;color:var(--muted);font-weight:700}
+    .okbox{display:grid;grid-template-columns:86px 1fr;gap:18px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px}
+    .okbadge{width:72px;height:72px;border-radius:20px;background:var(--good);color:white;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900}
+    .steps{display:grid;gap:10px}
+    .step{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px 16px}
+    .step strong{display:block;font-size:16px;margin-bottom:4px;color:var(--accent2)}
+    .num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--accent);color:white;border-radius:50%;margin-right:8px;font-weight:900}
+    .buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+    button,.btn{border:0;border-radius:14px;background:var(--accent);color:white;padding:14px 12px;font-weight:900;cursor:pointer;text-align:center;text-decoration:none;font-size:14px;display:block}
+    .btn.soft,button.soft{background:var(--soft);color:var(--accent2)}
+    .btn.dark,button.dark{background:var(--accent2);color:white}
+    .btn.good,button.good{background:var(--good);color:white}
+    .btn.warn,button.warn{background:var(--warn);color:white}
+    .btn:hover,button:hover{filter:brightness(.98);transform:translateY(-1px)}
+    .table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    .table th,.table td{border-bottom:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}
+    .table th{background:#fbf1ea;color:var(--accent2);font-size:13px;white-space:nowrap}
+    .table tr:last-child td{border-bottom:0}
+    code{background:#fff1e8;border:1px solid var(--line);border-radius:8px;padding:2px 6px;color:#6d3f31;font-weight:800}
+    .copybox{display:grid;gap:10px}
+    textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:16px;background:#fff;font:inherit;padding:14px;color:var(--text);resize:vertical}
+    .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#2f7d55;color:#fff;padding:12px 18px;border-radius:999px;font-weight:900;box-shadow:0 12px 30px rgba(0,0,0,.16);display:none;z-index:30}
+    .warnbox{background:#fff6e9;border:1px solid #efd3a8;border-radius:16px;padding:14px;color:#744b1d;font-weight:800}
+    .goodbox{background:#eef9f2;border:1px solid #c8ead5;border-radius:16px;padding:14px;color:#1f6c46;font-weight:800}
+    .split2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .tagrow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+    .tag{background:#f1e3da;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;color:var(--accent2)}
+    .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px;font-weight:800}
+    @media(max-width:900px){body{padding:14px}.grid{grid-template-columns:1fr}header{display:block}.pillbar{justify-content:flex-start;margin-top:12px}.buttons{grid-template-columns:1fr}.split2{grid-template-columns:1fr}h1{font-size:28px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>DPRO サロン予約 営業デモガイド</h1>
+        <div class="sub">シンプル版を残しながら、ブラッシュアップ版の魅力を商談中に迷わず見せるための営業担当用ガイドです。</div>
+      </div>
+      <div class="pillbar">
+        <span class="pill">管理コード 1234</span>
+        <span class="pill">STEP SALON-BRUSH-5</span>
+        <span class="pill">シンプル版は維持</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <main>
+        <div class="card">
+          <h2>営業前の最短チェック</h2>
+          <div class="okbox">
+            <div class="okbadge">GO</div>
+            <div>
+              <p class="lead">まず system-check.html を開いて、総合判定がOKならデモ開始です。</p>
+              <div class="small">営業前DEMO準備 → PC版オーナー → iPad版 → お客様予約の順に見せるとスムーズです。</div>
+            </div>
+          </div>
+          <div class="buttons">
+            <a class="btn good" target="_blank" href="./system-check.html?v=brush5">営業前チェックを開く</a>
+            <a class="btn" target="_blank" href="./owner.html?v=brush5">PC版オーナーを開く</a>
+            <a class="btn soft" target="_blank" href="./owner-ipad.html?v=brush5">iPad版を開く</a>
+            <a class="btn soft" target="_blank" href="./index.html?v=brush5">お客様予約を開く</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>1分デモ手順</h2>
+          <div class="steps">
+            <div class="step"><strong><span class="num">1</span>営業前チェック</strong>「デモ前に予約データ・API・休業日をまとめて確認できます」と説明します。</div>
+            <div class="step"><strong><span class="num">2</span>PC版オーナー画面</strong>今日の予約、今日やること、LINE文面コピーを見せます。</div>
+            <div class="step"><strong><span class="num">3</span>iPad版</strong>「PCが苦手でも、店頭のタブレットで今日の予約と連絡文面だけ見られます」と伝えます。</div>
+            <div class="step"><strong><span class="num">4</span>お客様予約</strong>予約が入ると管理画面に反映され、オーナーLINEにも通知が届く流れを見せます。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>3分デモ手順</h2>
+          <div class="steps">
+            <div class="step"><strong><span class="num">1</span>悩みから入る</strong>「予約確認、電話予約、来店前連絡、スタッフ共有がバラバラになりやすいですよね」と切り出します。</div>
+            <div class="step"><strong><span class="num">2</span>シンプル版を見せる</strong>「まずは最低限の予約管理だけでも使えます。難しい操作は不要です」と安心感を出します。</div>
+            <div class="step"><strong><span class="num">3</span>ブラッシュアップ版を見せる</strong>PC版 owner.html で、予約カード・今日やること・文面作成を見せます。</div>
+            <div class="step"><strong><span class="num">4</span>iPad版を見せる</strong>「店頭ではこの簡単画面だけで十分です」と、操作の軽さを見せます。</div>
+            <div class="step"><strong><span class="num">5</span>電話・店頭予約を入れる</strong>その場で予約追加 → 一覧反映を見せます。</div>
+            <div class="step"><strong><span class="num">6</span>文面編集コピー</strong>予約確認文を編集してコピーし、「LINEでの手打ちを減らせます」と説明します。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>相手別の見せ方</h2>
+          <table class="table">
+            <tr><th>相手</th><th>見せる画面</th><th>伝えること</th></tr>
+            <tr><td>PCが苦手なオーナー</td><td><code>admin.html</code><br><code>owner-ipad.html</code></td><td>複雑な管理画面を使わなくても、予約確認と電話予約だけなら簡単に使えます。</td></tr>
+            <tr><td>小規模・1人サロン</td><td><code>index.html</code><br><code>admin.html</code></td><td>まずはLINEから予約を受けるだけでも、電話対応や確認漏れを減らせます。</td></tr>
+            <tr><td>スタッフがいる店舗</td><td><code>staff.html</code><br><code>owner.html</code></td><td>スタッフ別の予定確認と、オーナー側の全体確認を分けられます。</td></tr>
+            <tr><td>高単価提案先</td><td><code>owner.html</code><br><code>system-check.html</code></td><td>予約管理だけではなく、今日やること・LINE連絡文面・営業前準備までまとめられます。</td></tr>
+          </table>
+        </div>
+      </main>
+
+      <aside>
+        <div class="card">
+          <h2>営業で使うURL</h2>
+          <div class="buttons">
+            <a class="btn" target="_blank" href="./index.html">お客様予約</a>
+            <a class="btn" target="_blank" href="./owner.html">PC版オーナー</a>
+            <a class="btn soft" target="_blank" href="./owner-ipad.html">iPad版</a>
+            <a class="btn soft" target="_blank" href="./admin.html">シンプル管理</a>
+            <a class="btn soft" target="_blank" href="./staff.html">スタッフ確認</a>
+            <a class="btn dark" target="_blank" href="./system-check.html">システムチェック</a>
+          </div>
+          <h3>LIFF URL</h3>
+          <div class="copybox">
+            <textarea id="liffUrl" readonly>https://liff.line.me/2010243135-H06VsAHm</textarea>
+            <button onclick="copyFrom('liffUrl')">LIFF URLをコピー</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>営業トーク例</h2>
+          <div class="copybox">
+            <textarea id="talkText">こちらは、LINEから予約を受けて、オーナー側で今日の予約・電話予約・スタッフ別確認まで見られるサロン向け予約システムです。
+
+PCが苦手な方にはシンプル管理画面だけを使っていただけます。
+しっかり活用したい店舗には、PC版オーナー画面やiPad版で、今日やること・LINE文面コピーまで使えます。
+
+まずは簡単に始めて、必要になったら高機能画面を使える形にしているので、導入後に無理なく広げられます。</textarea>
+            <button onclick="copyFrom('talkText')">営業トークをコピー</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>使い分けの一言</h2>
+          <div class="goodbox">シンプル版は、PCが苦手なオーナー向けに必ず残します。</div>
+          <br>
+          <div class="warnbox">ブラッシュアップ版は、営業デモ・高単価提案・しっかり使いたい店舗向けに追加で見せます。</div>
+          <div class="tagrow">
+            <span class="tag">基本版</span><span class="tag">高機能版</span><span class="tag">iPad版</span><span class="tag">営業前確認</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>内部情報</h2>
+          <table class="table">
+            <tr><th>項目</th><td>内容</td></tr>
+            <tr><th>管理コード</th><td><code>1234</code></td></tr>
+            <tr><th>統合API</th><td><code>https://dpro-salon-line-api.dpromstk2000.workers.dev</code></td></tr>
+            <tr><th>画面本体</th><td><code>https://liff-salon-reserve.pages.dev</code></td></tr>
+            <tr><th>LIFF ID</th><td><code>2010243135-H06VsAHm</code></td></tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>デモ前チェック項目</h2>
+          <div class="steps">
+            <div class="step"><strong>□ system-check がOK</strong>総合判定がOKになっている。</div>
+            <div class="step"><strong>□ 予約データあり</strong>本日・次営業日の予約が表示される。</div>
+            <div class="step"><strong>□ LINE通知OK</strong>予約時にオーナーLINEへ通知が届く。</div>
+            <div class="step"><strong>□ 文面コピーOK</strong>予約カードから文面作成・編集・コピーができる。</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <div class="footer">STEP SALON-BRUSH-5 / demo-guide.html 新規追加 / シンプル版は変更なし</div>
+  </div>
+
+  <div class="toast" id="toast">コピーしました</div>
+  <script>
+    function showToast(message){
+      const t = document.getElementById('toast');
+      t.textContent = message || 'コピーしました';
+      t.style.display = 'block';
+      setTimeout(()=>{ t.style.display = 'none'; }, 1800);
+    }
+    async function copyFrom(id){
+      const el = document.getElementById(id);
+      const text = el.value || el.textContent || '';
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast('コピーしました');
+      }catch(e){
+        el.focus();
+        el.select && el.select();
+        document.execCommand('copy');
+        showToast('コピーしました');
+      }
+    }
+  </script>
+</body>
+</html>
