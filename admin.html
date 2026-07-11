@@ -445,6 +445,10 @@
     </style>
 </head>
 <body>
+<div id="embed-demo-banner" style="display:none;position:sticky;top:0;z-index:9999;padding:9px 14px;text-align:center;background:#fff3cd;border-bottom:1px solid #e8cf79;color:#6a5210;font-size:12px;font-weight:800;">
+  製品紹介用デモ表示です。閲覧・画面操作はできますが、予約登録・変更・削除は実行されません。
+</div>
+
 <div id="admin-login" class="login-card">
     <div class="login-title">サロン予約 管理画面</div>
     <div class="login-note">管理コードを入力してください。<br>他のDEMOと同じく、管理コードは <strong>1234</strong> に統一しています。</div>
@@ -621,6 +625,8 @@
     const DEMO_RESET_WORKER_URL = "https://dpro-salon-line-api.dpromstk2000.workers.dev/api/demo-reset";
     const ADMIN_CODE = "1234";
     const ADMIN_SESSION_KEY = "dpro_salon_admin_auth_ok";
+    const PAGE_PARAMS = new URLSearchParams(window.location.search);
+    const IS_EMBED_DEMO = PAGE_PARAMS.get("embed_demo") === "1";
 
     let currentDate = new Date();
     let nextBusinessDateString = "";
@@ -637,7 +643,10 @@
             if (event.key === 'Enter') submitAdminCode();
         });
 
-        if (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'yes') {
+        if (IS_EMBED_DEMO) {
+            document.getElementById('embed-demo-banner').style.display = 'block';
+            openAdminContent();
+        } else if (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'yes') {
             openAdminContent();
         }
     }
@@ -767,6 +776,10 @@
     }
 
     async function resetDemoData() {
+        if (IS_EMBED_DEMO) {
+            alert("製品紹介画面ではデモデータ準備は実行できません。");
+            return;
+        }
         if (!DEMO_RESET_WORKER_URL) {
             alert('DEMOリセット用Worker URLが設定されていません。');
             return;

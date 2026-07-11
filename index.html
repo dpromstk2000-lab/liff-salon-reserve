@@ -81,6 +81,10 @@
     </style>
 </head>
 <body>
+<div id="embed-demo-banner" style="display:none;position:sticky;top:0;z-index:9999;padding:9px 14px;text-align:center;background:#fff3cd;border-bottom:1px solid #e8cf79;color:#6a5210;font-size:12px;font-weight:800;">
+  製品紹介用デモ表示です。閲覧・画面操作はできますが、予約登録・変更・削除は実行されません。
+</div>
+
 
 <div class="container">
     <h2 id="user-display">読み込み中...</h2>
@@ -262,14 +266,32 @@
         }
     }
 
-    async function initLiff() {
-        await liff.init({ liffId: "2010243135-H06VsAHm" });
+    const PAGE_PARAMS = new URLSearchParams(window.location.search);
+    const IS_EMBED_DEMO = PAGE_PARAMS.get("embed_demo") === "1";
+    const EMBED_DEMO_USER_ID = "salon_embed_demo_user";
 
+    async function initLiff() {
         const dateInput = document.getElementById('select_date');
         dateInput.min = toLocalDateString(new Date());
         dateInput.max = getTwoMonthsLaterString();
 
         await renderHolidayNotice();
+
+        if (IS_EMBED_DEMO) {
+            lineUserId = EMBED_DEMO_USER_ID;
+            lineDisplayName = "デモ表示";
+            document.getElementById('user-display').innerText = "製品紹介デモ";
+            document.getElementById('embed-demo-banner').style.display = 'block';
+
+            const nameInput = document.getElementById('customer_name');
+            if (nameInput && !nameInput.value) nameInput.value = 'デモ 太郎';
+
+            await fetchBookings();
+            await fetchStaffs();
+            return;
+        }
+
+        await liff.init({ liffId: "2010243135-H06VsAHm" });
 
         if (liff.isLoggedIn()) {
             const p = await liff.getProfile();
@@ -362,6 +384,10 @@
     }
 
     async function saveBooking() {
+        if (IS_EMBED_DEMO) {
+            alert("これは製品紹介用デモです。実際の予約は登録されません。");
+            return;
+        }
         const saveBtn = document.getElementById('save_btn');
         const name = document.getElementById('customer_name').value.trim();
         const time = document.getElementById('selected_datetime').value;
@@ -576,6 +602,10 @@
     }
 
     async function deleteBooking(id) {
+        if (IS_EMBED_DEMO) {
+            alert("これは製品紹介用デモです。予約削除は実行されません。");
+            return;
+        }
         if (!confirm('予約を削除しますか？')) return;
 
         const { data: bookingBeforeDelete } = await sbClient
