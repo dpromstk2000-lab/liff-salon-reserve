@@ -1,11 +1,12 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>DPROサロン LINE予約｜営業前システムチェック</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>DPROサロン LINE予約｜営業前システムチェック</title>
+
+<style>
     :root {
       --bg: #f6f0ea;
       --card: #ffffff;
@@ -386,637 +387,154 @@
       .overall-main { flex-direction: column; align-items: flex-start; }
     }
   </style>
-</head>
+<meta content="SALON-FRONTEND-API3-20260822" name="dpro-frontend-version"/></head>
 <body>
-  <div id="login-view" class="login-wrap">
-    <div class="login-card">
-      <h1>営業前システムチェック</h1>
-      <p>サロン予約システムのAPI・予約件数・画面リンクを営業前に確認します。</p>
-      <div class="login-row">
-        <input id="admin-code" type="password" inputmode="numeric" placeholder="管理コード 1234" />
-        <button onclick="loginOwner()">確認画面へ</button>
-      </div>
-      <div id="login-message" class="message"></div>
-    </div>
-  </div>
-
-  <div id="app-view" class="page" style="display:none;">
-    <header class="topbar">
-      <div class="brand">
-        <h1>サロン予約 システムチェック</h1>
-        <p>営業前に、統合API・Supabase・予約データ・画面リンクをまとめて確認します。</p>
-      </div>
-      <div class="top-actions">
-        <span id="api-pill" class="status-pill">統合API 確認中</span>
-        <button class="btn-accent" onclick="runAllChecks()">再チェック</button>
-        <button class="btn-soft" onclick="resetDemoData()">DEMO準備</button>
-        <button class="btn-soft" onclick="logoutOwner()">ログアウト</button>
-      </div>
-    </header>
-
-    <section class="hero">
-      <div class="overall">
-        <div class="overall-title">
-          <h2>総合判定</h2>
-          <small id="last-check">未確認</small>
-        </div>
-        <div class="overall-main">
-          <div id="overall-badge" class="big-badge">?</div>
-          <div class="overall-text">
-            <strong id="overall-title">チェック中です</strong>
-            <span id="overall-note">営業前DEMOに必要な項目を確認します。</span>
-          </div>
-        </div>
-        <div id="reset-message" class="message"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-title">
-          <h2>営業で使うURL</h2>
-          <small>クリックで開く</small>
-        </div>
-        <div class="link-grid">
-          <a href="index.html" target="_blank">お客様予約</a>
-          <a href="owner.html" target="_blank">PC版オーナー</a>
-          <a href="owner-ipad.html" target="_blank">iPad版</a>
-          <a href="admin.html" target="_blank">シンプル管理</a>
-          <a href="staff.html" target="_blank">スタッフ確認</a>
-          <a href="https://liff.line.me/2010243135-H06VsAHm" target="_blank">LIFF URL</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="summary-grid">
-      <div class="summary-card">
-        <div class="summary-label">本日の予約</div>
-        <div id="today-count" class="summary-main">--</div>
-        <div id="today-note" class="summary-note">確認中</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">次営業日の予約</div>
-        <div id="next-count" class="summary-main">--</div>
-        <div id="next-note" class="summary-note">確認中</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">今後の予約</div>
-        <div id="future-count" class="summary-main">--</div>
-        <div class="summary-note">今日以降の予約数</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">スタッフ</div>
-        <div id="staff-count" class="summary-main">--</div>
-        <div id="staff-note" class="summary-note">確認中</div>
-      </div>
-    </section>
-
-    <main class="main-grid">
-      <section>
-        <div class="panel">
-          <div class="panel-title">
-            <h2>接続チェック</h2>
-            <small>重要項目</small>
-          </div>
-          <div id="check-list" class="check-list">
-            <div class="empty">読み込み中...</div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">
-            <h2>営業前デモ手順</h2>
-            <small>おすすめ順</small>
-          </div>
-          <div class="demo-steps">
-            <div class="step-card">
-              <h3>1. DEMOデータを準備</h3>
-              <p>本日・次営業日・今後の予約が見える状態に整えます。</p>
-              <button class="btn-wide btn-accent" onclick="resetDemoData()">営業前DEMOを準備する</button>
-            </div>
-            <div class="step-card">
-              <h3>2. オーナー画面で説明</h3>
-              <p>今日の予約、今日やること、LINE文面コピーを見せます。</p>
-              <a href="owner.html" target="_blank">PC版 owner.html を開く</a>
-            </div>
-            <div class="step-card">
-              <h3>3. iPad画面で簡単操作を見せる</h3>
-              <p>PCが苦手なオーナーには、iPad版を主役にします。</p>
-              <a href="owner-ipad.html" target="_blank">iPad版 owner-ipad.html を開く</a>
-            </div>
-            <div class="step-card">
-              <h3>4. お客様予約を試す</h3>
-              <p>予約が入るとLINE通知が届き、管理画面に反映されます。</p>
-              <a href="index.html" target="_blank">お客様予約 index.html を開く</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div class="panel">
-          <div class="panel-title">
-            <h2>店舗設定・休業日</h2>
-            <small>現在値</small>
-          </div>
-          <div id="settings-table" class="data-table">
-            <div class="empty">確認中...</div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">
-            <h2>スタッフ一覧</h2>
-            <small id="staff-list-note">確認中</small>
-          </div>
-          <div id="staff-list" class="staff-tags"></div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">
-            <h2>本日の予約一覧</h2>
-            <small id="today-list-note">確認中</small>
-          </div>
-          <div id="today-booking-list" class="booking-list">
-            <div class="empty">確認中...</div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <div class="version">STEP SALON-BRUSH-6 / system-check.html 表示改善 / シンプル版は変更なし</div>
-  </div>
-
-  <script>
-    const SUPABASE_URL = 'https://cbknucemarcpbscirzyv.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J';
-    const API_BASE_URL = 'https://dpro-salon-line-api.dpromstk2000.workers.dev';
-    const ADMIN_CODE = '1234';
-    const SESSION_KEY = 'dpro_salon_system_check_auth_ok';
-
-    const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    let settings = null;
-    let staffs = [];
-    let checkItems = [];
-    let nextBusinessDate = '';
-
-    window.addEventListener('load', () => {
-      document.getElementById('admin-code').addEventListener('keydown', event => {
-        if (event.key === 'Enter') loginOwner();
-      });
-
-      if (sessionStorage.getItem(SESSION_KEY) === 'yes') {
-        openCheck();
-      }
-    });
-
-    function loginOwner() {
-      const input = document.getElementById('admin-code');
-      const value = (input.value || '').trim();
-
-      if (value !== ADMIN_CODE) {
-        showMessage('login-message', '管理コードが違います。', 'err');
-        input.focus();
-        input.select();
-        return;
-      }
-
-      sessionStorage.setItem(SESSION_KEY, 'yes');
-      openCheck();
-    }
-
-    function logoutOwner() {
-      sessionStorage.removeItem(SESSION_KEY);
-      location.reload();
-    }
-
-    async function openCheck() {
-      document.getElementById('login-view').style.display = 'none';
-      document.getElementById('app-view').style.display = 'block';
-      await runAllChecks();
-    }
-
-    async function runAllChecks() {
-      checkItems = [];
-      setOverall('checking', 'チェック中です', '統合API・Supabase・予約データを確認しています。');
-      setApiPill('統合API 確認中');
-      renderChecks();
-      document.getElementById('last-check').textContent = '確認中...';
-
-      await checkApiHealth();
-      await checkApiEnv();
-      await checkSupabaseData();
-      renderChecks();
-      updateOverall();
-      document.getElementById('last-check').textContent = `最終確認：${formatNowTime()}`;
-    }
-
-    async function checkApiHealth() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/health`);
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || 'API health NG');
-        addCheck('ok', '統合API', `OK / ${data.version || 'version未取得'}`, API_BASE_URL);
-        setApiPill('統合API OK');
-      } catch (error) {
-        addCheck('err', '統合API', 'NG / ' + error.message, API_BASE_URL);
-        setApiPill('統合API NG');
-      }
-    }
-
-    async function checkApiEnv() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/env-check`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ admin_code: ADMIN_CODE })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || 'env-check NG');
-        const status = data.env_status || {};
-        const missing = Object.keys(status).filter(key => status[key] !== 'set' && status[key] !== 'default_1234');
-        if (missing.length) {
-          addCheck('warn', '環境変数', `一部確認が必要：${missing.join(', ')}`, 'Cloudflare Variables and secrets');
-        } else {
-          addCheck('ok', '環境変数', 'OK / 必要な環境変数は設定済み', 'ADMIN_CODE / LINE / Supabase');
-        }
-      } catch (error) {
-        addCheck('err', '環境変数', 'NG / ' + error.message, 'POST /api/env-check');
-      }
-    }
-
-    async function checkSupabaseData() {
-      try {
-        await loadSettings();
-        addCheck('ok', '店舗設定', 'OK / 営業時間・定休日を取得できました', `${settings.open_time || '--'}〜${settings.close_time || '--'}`);
-      } catch (error) {
-        addCheck('err', '店舗設定', 'NG / ' + error.message, 'salon_settings');
-        settings = { open_time: '10:00', close_time: '19:00', regular_holidays: '' };
-      }
-
-      try {
-        await loadStaffs();
-        addCheck(staffs.length ? 'ok' : 'warn', 'スタッフ', `${staffs.length}名取得`, staffs.length ? staffs.map(s => s.name).join('・') : 'スタッフ未登録');
-      } catch (error) {
-        addCheck('err', 'スタッフ', 'NG / ' + error.message, 'staffs');
-        staffs = [];
-      }
-
-      try {
-        await loadBookingSummary();
-        addCheck('ok', '予約データ', 'OK / 本日・次営業日・今後の予約を取得できました', 'bookings');
-      } catch (error) {
-        addCheck('err', '予約データ', 'NG / ' + error.message, 'bookings');
-      }
-
-      try {
-        await loadClosedDays();
-        addCheck('ok', '休業日', 'OK / 臨時休業日を取得できました', 'salon_closed_days');
-      } catch (error) {
-        addCheck('warn', '休業日', '確認できませんでした / ' + error.message, '営業デモ自体は継続可能');
-      }
-
-      renderSettings();
-      renderStaffs();
-    }
-
-    async function loadSettings() {
-      const { data, error } = await sbClient
-        .from('salon_settings')
-        .select('*')
-        .eq('id', 1)
-        .single();
-
-      if (error) throw new Error(error.message);
-      settings = data || { open_time: '10:00', close_time: '19:00', regular_holidays: '' };
-    }
-
-    async function loadStaffs() {
-      const { data, error } = await sbClient
-        .from('staffs')
-        .select('*')
-        .order('id', { ascending: true });
-
-      if (error) throw new Error(error.message);
-      staffs = data || [];
-      document.getElementById('staff-count').textContent = String(staffs.length);
-      document.getElementById('staff-note').textContent = staffs.length ? staffs.map(s => s.name).join('・') : 'スタッフ未登録';
-    }
-
-    async function loadBookingSummary() {
-      const today = getTodayString();
-      nextBusinessDate = await findNextBusinessDateString();
-
-      const todayBookings = await getBookingsByDate(today);
-      document.getElementById('today-count').textContent = String(todayBookings.length);
-      document.getElementById('today-note').textContent = formatDateLabel(today);
-      renderTodayBookings(todayBookings);
-
-      if (nextBusinessDate) {
-        const nextBookings = await getBookingsByDate(nextBusinessDate);
-        document.getElementById('next-count').textContent = String(nextBookings.length);
-        document.getElementById('next-note').textContent = formatDateLabel(nextBusinessDate);
-      } else {
-        document.getElementById('next-count').textContent = '--';
-        document.getElementById('next-note').textContent = '次営業日を取得できません';
-      }
-
-      const { data: futureRows, error } = await sbClient
-        .from('bookings')
-        .select('id')
-        .gte('start_datetime', `${today}T00:00:00`);
-
-      if (error) throw new Error(error.message);
-      document.getElementById('future-count').textContent = String((futureRows || []).length);
-    }
-
-    async function getBookingsByDate(dateStr) {
-      const { data, error } = await sbClient
-        .from('bookings')
-        .select('*')
-        .gte('start_datetime', `${dateStr}T00:00:00`)
-        .lte('start_datetime', `${dateStr}T23:59:59`)
-        .order('start_datetime', { ascending: true });
-
-      if (error) throw new Error(error.message);
-      return data || [];
-    }
-
-    async function loadClosedDays() {
-      const today = getTodayString();
-      const until = getTwoMonthsLaterString();
-      const { data, error } = await sbClient
-        .from('salon_closed_days')
-        .select('*')
-        .gte('closed_date', today)
-        .lte('closed_date', until)
-        .order('closed_date', { ascending: true });
-
-      if (error) throw new Error(error.message);
-      renderClosedDays(data || []);
-    }
-
-    async function findNextBusinessDateString() {
-      const today = new Date();
-      const closedSet = await getClosedSet(getTomorrowString(), getTwoMonthsLaterString());
-      const holidays = getRegularHolidayArray();
-
-      for (let i = 1; i <= 60; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-        const dateStr = toLocalDateString(d);
-        if (holidays.includes(String(d.getDay()))) continue;
-        if (closedSet.has(dateStr)) continue;
-        return dateStr;
-      }
-      return '';
-    }
-
-    async function getClosedSet(startDate, endDate) {
-      const { data, error } = await sbClient
-        .from('salon_closed_days')
-        .select('closed_date')
-        .gte('closed_date', startDate)
-        .lte('closed_date', endDate);
-
-      if (error) return new Set();
-      return new Set((data || []).map(row => row.closed_date));
-    }
-
-    function renderSettings() {
-      const regular = getRegularHolidayArray();
-      const regularLabel = regular.length ? regular.map(dayNumberToLabel).join('・') : '未設定';
-      const rows = [
-        ['営業時間', `${settings.open_time || '--'} 〜 ${settings.close_time || '--'}`],
-        ['定休日', regularLabel],
-        ['統合API', API_BASE_URL],
-        ['LIFF URL', 'https://liff.line.me/2010243135-H06VsAHm'],
-        ['管理コード', '1234']
-      ];
-      document.getElementById('settings-table').innerHTML = rows.map(([key, value]) => `
-        <div class="data-row">
-          <div class="data-key">${escapeHtml(key)}</div>
-          <div class="data-val">${escapeHtml(value)}</div>
-        </div>
-      `).join('') + '<div id="closed-days-inline" style="margin-top:12px;"></div>';
-    }
-
-    function renderClosedDays(rows) {
-      const container = document.getElementById('closed-days-inline');
-      if (!container) return;
-      if (!rows.length) {
-        container.innerHTML = '<div class="empty">直近2カ月の臨時休業日は登録されていません。</div>';
-        return;
-      }
-
-      container.innerHTML = `
-        <div class="data-key" style="margin:12px 0 8px;">臨時休業</div>
-        <div class="closed-list">
-          ${rows.map(row => `<span class="tag">${escapeHtml(formatDateLabel(row.closed_date))}：${escapeHtml(String(row.reason || '理由なし').replace('【DEMO】', ''))}</span>`).join('')}
-        </div>
-      `;
-    }
-
-    function renderStaffs() {
-      document.getElementById('staff-list-note').textContent = `${staffs.length}名`;
-      const box = document.getElementById('staff-list');
-      if (!staffs.length) {
-        box.innerHTML = '<div class="empty">スタッフ未登録です。</div>';
-        return;
-      }
-      box.innerHTML = staffs.map(staff => `<span class="tag">${escapeHtml(staff.name || '名前未設定')}</span>`).join('');
-    }
-
-    function renderTodayBookings(bookings) {
-      document.getElementById('today-list-note').textContent = `${formatDateLabel(getTodayString())} / ${bookings.length}件`;
-      const box = document.getElementById('today-booking-list');
-      if (!bookings.length) {
-        box.innerHTML = '<div class="empty">本日の予約はありません。営業デモではDEMO準備ボタンを押すと見せやすくなります。</div>';
-        return;
-      }
-      box.innerHTML = bookings.map(booking => {
-        const time = getTimeFromDatetime(booking.start_datetime);
-        const memo = booking.memo ? String(booking.memo).replace('【DEMO】', '') : 'メモなし';
-        return `
-          <div class="booking-card">
-            <div class="time-box">${escapeHtml(time)}</div>
-            <div>
-              <div class="booking-name">${escapeHtml(booking.customer_name || '未入力')} 様</div>
-              <div class="booking-meta">担当：${escapeHtml(booking.staff_name || 'お任せ')}</div>
-              <div class="booking-memo">📝 ${escapeHtml(memo)}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function addCheck(type, title, main, detail) {
-      checkItems.push({ type, title, main, detail });
-      renderChecks();
-    }
-
-    function renderChecks() {
-      const box = document.getElementById('check-list');
-      if (!checkItems.length) {
-        box.innerHTML = '<div class="empty">チェック中...</div>';
-        return;
-      }
-      box.innerHTML = checkItems.map(item => {
-        const label = item.type === 'ok' ? 'OK' : item.type === 'err' ? 'NG' : item.type === 'warn' ? '確認' : 'INFO';
-        return `
-          <div class="check-row">
-            <div class="check-label ${escapeHtml(item.type)}">${label}</div>
-            <div class="check-body">
-              <strong>${escapeHtml(item.title)}：${escapeHtml(item.main)}</strong>
-              <span>${escapeHtml(item.detail || '')}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function updateOverall() {
-      const hasError = checkItems.some(i => i.type === 'err');
-      const hasWarn = checkItems.some(i => i.type === 'warn');
-
-      if (hasError) {
-        setOverall('err', '営業前に確認が必要です', '赤いNG項目を確認してください。画面リンクやAPI設定が原因の可能性があります。');
-        return;
-      }
-
-      if (hasWarn) {
-        setOverall('warn', 'ほぼOKです', '確認項目がありますが、営業デモは進められる可能性が高いです。');
-        return;
-      }
-
-      setOverall('ok', '営業デモOKです', '統合API・Supabase・予約データ・画面リンクの基本確認が完了しました。');
-    }
-
-    function setOverall(type, title, note) {
-      const badge = document.getElementById('overall-badge');
-      badge.className = 'big-badge';
-      if (type === 'ok') {
-        badge.classList.add('ok');
-        badge.textContent = 'OK';
-      } else if (type === 'err') {
-        badge.classList.add('err');
-        badge.textContent = 'NG';
-      } else if (type === 'warn') {
-        badge.textContent = '△';
-      } else {
-        badge.textContent = '…';
-      }
-      document.getElementById('overall-title').textContent = title;
-      document.getElementById('overall-note').textContent = note;
-    }
-
-    function setApiPill(text) {
-      document.getElementById('api-pill').textContent = text;
-    }
-
-    async function resetDemoData() {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      if (!confirm('営業前DEMOデータを準備しますか？')) return;
-
-      buttons.forEach(btn => btn.disabled = true);
-      hideMessage('reset-message');
-      showMessage('reset-message', '営業前DEMOデータを準備中です...', 'info');
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/demo-reset`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-demo-reset-secret': ADMIN_CODE
-          },
-          body: '{}'
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || 'DEMOリセットに失敗しました。');
-        showMessage('reset-message', data.message || '営業前DEMOデータを準備しました。', 'ok');
-        await runAllChecks();
-      } catch (error) {
-        showMessage('reset-message', 'DEMO準備に失敗しました。\n' + error.message, 'err');
-      } finally {
-        buttons.forEach(btn => btn.disabled = false);
-      }
-    }
-
-    function getRegularHolidayArray() {
-      return settings?.regular_holidays ? settings.regular_holidays.split(',').filter(Boolean) : [];
-    }
-
-    function getTodayString() {
-      return toLocalDateString(new Date());
-    }
-
-    function getTomorrowString() {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      return toLocalDateString(d);
-    }
-
-    function getTwoMonthsLaterString() {
-      const d = new Date();
-      d.setMonth(d.getMonth() + 2);
-      return toLocalDateString(d);
-    }
-
-    function toLocalDateString(date) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-
-    function parseLocalDate(dateStr) {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      return new Date(y, m - 1, d);
-    }
-
-    function getTimeFromDatetime(value) {
-      if (!value) return '--:--';
-      const parts = String(value).split('T');
-      return (parts[1] || '').substring(0, 5) || '--:--';
-    }
-
-    function formatDateLabel(dateStr) {
-      if (!dateStr) return '--';
-      const d = parseLocalDate(dateStr);
-      const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-      return `${d.getMonth() + 1}月${d.getDate()}日（${week}）`;
-    }
-
-    function dayNumberToLabel(num) {
-      return ['日', '月', '火', '水', '木', '金', '土'][Number(num)] || String(num);
-    }
-
-    function formatNowTime() {
-      const d = new Date();
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-    }
-
-    function showMessage(id, text, type = 'info') {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.textContent = text;
-      el.className = `message show ${type}`;
-    }
-
-    function hideMessage(id) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.className = 'message';
-      el.textContent = '';
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? '').replace(/[&<>'"]/g, ch => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[ch]));
-    }
-  </script>
-</body>
+<div class="login-wrap" id="login-view">
+<div class="login-card">
+<h1>営業前システムチェック</h1>
+<p>サロン予約システムのAPI・予約件数・画面リンクを営業前に確認します。</p>
+<div class="login-row">
+<input id="admin-code" inputmode="numeric" placeholder="DEMO管理コード 1234" type="password"/>
+<button onclick="loginOwner()">確認画面へ</button>
+</div>
+<div class="message" id="login-message"></div>
+</div>
+</div>
+<div class="page" id="app-view" style="display:none;">
+<header class="topbar">
+<div class="brand">
+<h1>サロン予約 システムチェック</h1>
+<p>営業前に、統合API・Supabase・予約データ・画面リンクをまとめて確認します。</p>
+</div>
+<div class="top-actions">
+<span class="status-pill" id="api-pill">統合API 確認中</span>
+<button class="btn-accent" onclick="runAllChecks()">再チェック</button>
+<button class="btn-soft" onclick="resetDemoData()">DEMO準備</button>
+<button class="btn-soft" onclick="logoutOwner()">ログアウト</button>
+</div>
+</header>
+<section class="hero">
+<div class="overall">
+<div class="overall-title">
+<h2>総合判定</h2>
+<small id="last-check">未確認</small>
+</div>
+<div class="overall-main">
+<div class="big-badge" id="overall-badge">?</div>
+<div class="overall-text">
+<strong id="overall-title">チェック中です</strong>
+<span id="overall-note">営業前DEMOに必要な項目を確認します。</span>
+</div>
+</div>
+<div class="message" id="reset-message"></div>
+</div>
+<div class="panel">
+<div class="panel-title">
+<h2>営業で使うURL</h2>
+<small>クリックで開く</small>
+</div>
+<div class="link-grid">
+<a href="index.html" target="_blank">お客様予約</a>
+<a href="owner.html" target="_blank">PC版オーナー</a>
+<a href="owner-ipad.html" target="_blank">iPad版</a>
+<a href="admin.html" target="_blank">シンプル管理</a>
+<a href="staff.html" target="_blank">スタッフ確認</a>
+<a href="https://liff.line.me/2010243135-H06VsAHm" target="_blank">LIFF URL</a>
+</div>
+</div>
+</section>
+<section class="summary-grid">
+<div class="summary-card">
+<div class="summary-label">本日の予約</div>
+<div class="summary-main" id="today-count">--</div>
+<div class="summary-note" id="today-note">確認中</div>
+</div>
+<div class="summary-card">
+<div class="summary-label">次営業日の予約</div>
+<div class="summary-main" id="next-count">--</div>
+<div class="summary-note" id="next-note">確認中</div>
+</div>
+<div class="summary-card">
+<div class="summary-label">今後の予約</div>
+<div class="summary-main" id="future-count">--</div>
+<div class="summary-note">今日以降の予約数</div>
+</div>
+<div class="summary-card">
+<div class="summary-label">スタッフ</div>
+<div class="summary-main" id="staff-count">--</div>
+<div class="summary-note" id="staff-note">確認中</div>
+</div>
+</section>
+<main class="main-grid">
+<section>
+<div class="panel">
+<div class="panel-title">
+<h2>接続チェック</h2>
+<small>重要項目</small>
+</div>
+<div class="check-list" id="check-list">
+<div class="empty">読み込み中...</div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-title">
+<h2>営業前デモ手順</h2>
+<small>おすすめ順</small>
+</div>
+<div class="demo-steps">
+<div class="step-card">
+<h3>1. DEMOデータを準備</h3>
+<p>本日・次営業日・今後の予約が見える状態に整えます。</p>
+<button class="btn-wide btn-accent" onclick="resetDemoData()">営業前DEMOを準備する</button>
+</div>
+<div class="step-card">
+<h3>2. オーナー画面で説明</h3>
+<p>今日の予約、今日やること、LINE文面コピーを見せます。</p>
+<a href="owner.html" target="_blank">PC版 owner.html を開く</a>
+</div>
+<div class="step-card">
+<h3>3. iPad画面で簡単操作を見せる</h3>
+<p>PCが苦手なオーナーには、iPad版を主役にします。</p>
+<a href="owner-ipad.html" target="_blank">iPad版 owner-ipad.html を開く</a>
+</div>
+<div class="step-card">
+<h3>4. お客様予約を試す</h3>
+<p>予約が入るとLINE通知が届き、管理画面に反映されます。</p>
+<a href="index.html" target="_blank">お客様予約 index.html を開く</a>
+</div>
+</div>
+</div>
+</section>
+<section>
+<div class="panel">
+<div class="panel-title">
+<h2>店舗設定・休業日</h2>
+<small>現在値</small>
+</div>
+<div class="data-table" id="settings-table">
+<div class="empty">確認中...</div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-title">
+<h2>スタッフ一覧</h2>
+<small id="staff-list-note">確認中</small>
+</div>
+<div class="staff-tags" id="staff-list"></div>
+</div>
+<div class="panel">
+<div class="panel-title">
+<h2>本日の予約一覧</h2>
+<small id="today-list-note">確認中</small>
+</div>
+<div class="booking-list" id="today-booking-list">
+<div class="empty">確認中...</div>
+</div>
+</div>
+</section>
+</main>
+<div class="version">STEP SALON-BRUSH-6 / system-check.html 表示改善 / シンプル版は変更なし</div>
+</div>
+
+<script src="salon-api3-common.js"></script><script src="salon-system-check-api3.js"></script></body>
 </html>

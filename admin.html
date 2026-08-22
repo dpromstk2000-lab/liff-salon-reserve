@@ -1,11 +1,12 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オーナー管理画面</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>オーナー管理画面</title>
+
+<style>
         :root {
             --bg-body: #f5f3f0;
             --bg-card: #ffffff;
@@ -443,1098 +444,139 @@
             }
         }
     </style>
-</head>
+<meta content="SALON-FRONTEND-API3-20260822" name="dpro-frontend-version"/></head>
 <body>
-<div id="embed-demo-banner" style="display:none;position:sticky;top:0;z-index:9999;padding:9px 14px;text-align:center;background:#fff3cd;border-bottom:1px solid #e8cf79;color:#6a5210;font-size:12px;font-weight:800;">
-  製品紹介用デモ表示です。閲覧・画面操作はできますが、予約登録・変更・削除は実行されません。
+<div class="login-card" id="admin-login">
+<div class="login-title">サロン予約 管理画面</div>
+<div class="login-note">DEMO管理コードを入力してください。公開製品紹介は埋め込みDEMOで安全に閲覧できます。</div>
+<input autocomplete="off" class="login-input" id="admin-code-input" inputmode="numeric" placeholder="DEMO管理コード 1234" type="password"/>
+<button class="login-button" onclick="submitAdminCode()">管理画面を開く</button>
+<div class="login-error" id="admin-code-error"></div>
 </div>
-
-<div id="admin-login" class="login-card">
-    <div class="login-title">サロン予約 管理画面</div>
-    <div class="login-note">管理コードを入力してください。<br>他のDEMOと同じく、管理コードは <strong>1234</strong> に統一しています。</div>
-    <input id="admin-code-input" class="login-input" type="password" inputmode="numeric" autocomplete="off" placeholder="管理コード">
-    <button class="login-button" onclick="submitAdminCode()">管理画面を開く</button>
-    <div id="admin-code-error" class="login-error"></div>
-</div>
-
 <div class="container" id="admin-content" style="display:none;">
-    <h3>サロン予約管理</h3>
-    <div class="admin-toolbar">
-        <span>管理コード認証済み</span>
-        <button class="logout-button" onclick="logoutAdmin()">ロックする</button>
-    </div>
-
-    <div class="quick-summary">
-        <div class="quick-card" onclick="goToToday()">
-            <div class="quick-label">本日の予約</div>
-            <div id="today-count" class="quick-count">--件</div>
-            <div id="today-note" class="quick-note">読み込み中...</div>
-        </div>
-
-        <div class="quick-card" onclick="goToNextBusinessDay()">
-            <div class="quick-label">次の営業日の予約</div>
-            <div id="next-business-count" class="quick-count">--件</div>
-            <div id="next-business-note" class="quick-note">読み込み中...</div>
-        </div>
-
-        <div class="quick-full">
+<h3>サロン予約管理</h3>
+<div class="admin-toolbar">
+<span>管理コード認証済み</span>
+<button class="logout-button" onclick="logoutAdmin()">ロックする</button>
+</div>
+<div class="quick-summary">
+<div class="quick-card" onclick="goToToday()">
+<div class="quick-label">本日の予約</div>
+<div class="quick-count" id="today-count">--件</div>
+<div class="quick-note" id="today-note">読み込み中...</div>
+</div>
+<div class="quick-card" onclick="goToNextBusinessDay()">
+<div class="quick-label">次の営業日の予約</div>
+<div class="quick-count" id="next-business-count">--件</div>
+<div class="quick-note" id="next-business-note">読み込み中...</div>
+</div>
+<div class="quick-full">
             本日の予約と、定休日・臨時休業日を除いた「次の営業日」の予約件数をすぐ確認できます。
         </div>
-    </div>
-
-    <button class="toggle-btn" onclick="toggleSettings()">⚙️ 店舗設定・スタッフ管理を開く ▼</button>
-
-    <div id="settings-area">
-
-        <div class="settings-box demo-box">
-            <h4>営業前DEMO準備</h4>
-
-            <p class="note-text">
-                営業前に押すと、DEMO予約・定休日・臨時休業日を今日基準で作り直します。<br>
+</div>
+<button class="toggle-btn" onclick="toggleSettings()">⚙️ 店舗設定・スタッフ管理を開く ▼</button>
+<div id="settings-area">
+<div class="settings-box demo-box">
+<h4>営業前DEMO準備</h4>
+<p class="note-text">
+                営業前に押すと、DEMO予約・定休日・臨時休業日を今日基準で作り直します。<br/>
                 あなた自身のLINE予約履歴もリセットされるため、お客様画面を「初めて予約する状態」で見せられます。
             </p>
-
-            <button class="save-btn demo-btn" id="demo-reset-btn" onclick="resetDemoData()">営業前DEMOを準備する</button>
-
-            <div id="demo-reset-message" class="message"></div>
-        </div>
-
-        <div class="settings-box">
-            <h4>店舗設定</h4>
-
-            <div style="margin-bottom: 10px;">
-                <input type="time" id="open-time"> 〜 <input type="time" id="close-time">
-            </div>
-            
-            <label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">定休日を設定</label>
-            <div class="holiday-checkboxes" id="holiday-checkboxes">
-                <label><input type="checkbox" value="0" class="hol-cb">日</label>
-                <label><input type="checkbox" value="1" class="hol-cb">月</label>
-                <label><input type="checkbox" value="2" class="hol-cb">火</label>
-                <label><input type="checkbox" value="3" class="hol-cb">水</label>
-                <label><input type="checkbox" value="4" class="hol-cb">木</label>
-                <label><input type="checkbox" value="5" class="hol-cb">金</label>
-                <label><input type="checkbox" value="6" class="hol-cb">土</label>
-            </div>
-
-            <button class="save-btn" onclick="saveSettings()">設定を保存</button>
-        </div>
-
-        <div class="settings-box">
-            <h4>臨時休業日設定</h4>
-
-            <p class="note-text">
-                直近2カ月以内の臨時休業日を登録できます。<br>
+<button class="save-btn demo-btn" id="demo-reset-btn" onclick="resetDemoData()">営業前DEMOを準備する</button>
+<div class="message" id="demo-reset-message"></div>
+</div>
+<div class="settings-box">
+<h4>店舗設定</h4>
+<div style="margin-bottom: 10px;">
+<input id="open-time" type="time"/> 〜 <input id="close-time" type="time"/>
+</div>
+<label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">定休日を設定</label>
+<div class="holiday-checkboxes" id="holiday-checkboxes">
+<label><input class="hol-cb" type="checkbox" value="0"/>日</label>
+<label><input class="hol-cb" type="checkbox" value="1"/>月</label>
+<label><input class="hol-cb" type="checkbox" value="2"/>火</label>
+<label><input class="hol-cb" type="checkbox" value="3"/>水</label>
+<label><input class="hol-cb" type="checkbox" value="4"/>木</label>
+<label><input class="hol-cb" type="checkbox" value="5"/>金</label>
+<label><input class="hol-cb" type="checkbox" value="6"/>土</label>
+</div>
+<button class="save-btn" onclick="saveSettings()">設定を保存</button>
+</div>
+<div class="settings-box">
+<h4>臨時休業日設定</h4>
+<p class="note-text">
+                直近2カ月以内の臨時休業日を登録できます。<br/>
                 登録した日は、お客様の予約画面で予約できない日になります。
             </p>
-
-            <label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">休業日</label>
-            <input type="date" id="closed-date" class="full-input">
-
-            <label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">理由・メモ</label>
-            <input type="text" id="closed-reason" class="full-input" placeholder="例：研修のため / お盆休み / 店舗都合">
-
-            <button class="save-btn" id="add-closed-btn" onclick="addClosedDay()">この日を臨時休業にする</button>
-
-            <div id="closed-message" class="message"></div>
-
-            <h4 style="margin-top:20px;">登録済みの臨時休業日</h4>
-            <div id="closed-days-list" class="closed-list">読み込み中...</div>
-        </div>
-
-        <div class="settings-box">
-            <h4>スタッフ管理</h4>
-
-            <div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px;"></div>
-
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="new-staff-name" placeholder="新しいスタッフ名" style="flex-grow: 1;">
-                <button onclick="addStaff()">追加</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="manual-booking-box" id="manual-booking-box">
-        <h4>電話・店頭予約を追加</h4>
-        <p class="note-text">
-            空き枠の「＋予約」を押すと、日付と時間がここに自動で入ります。<br>
+<label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">休業日</label>
+<input class="full-input" id="closed-date" type="date"/>
+<label style="font-weight: bold; font-size: 14px; color: var(--primary-brown);">理由・メモ</label>
+<input class="full-input" id="closed-reason" placeholder="例：研修のため / お盆休み / 店舗都合" type="text"/>
+<button class="save-btn" id="add-closed-btn" onclick="addClosedDay()">この日を臨時休業にする</button>
+<div class="message" id="closed-message"></div>
+<h4 style="margin-top:20px;">登録済みの臨時休業日</h4>
+<div class="closed-list" id="closed-days-list">読み込み中...</div>
+</div>
+<div class="settings-box">
+<h4>スタッフ管理</h4>
+<div id="staff-list-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px;"></div>
+<div style="display: flex; gap: 5px;">
+<input id="new-staff-name" placeholder="新しいスタッフ名" style="flex-grow: 1;" type="text"/>
+<button onclick="addStaff()">追加</button>
+</div>
+</div>
+</div>
+<div class="manual-booking-box" id="manual-booking-box">
+<h4>電話・店頭予約を追加</h4>
+<p class="note-text">
+            空き枠の「＋予約」を押すと、日付と時間がここに自動で入ります。<br/>
             電話を受けながら、名前・担当・要望を1画面で入力できます。
         </p>
-
-        <div class="manual-booking-grid">
-            <div>
-                <label class="manual-label">予約日</label>
-                <input type="date" id="manual-date" class="manual-input">
-            </div>
-
-            <div>
-                <label class="manual-label">時間</label>
-                <input type="time" id="manual-time" class="manual-input" step="1800">
-            </div>
-
-            <div class="full">
-                <label class="manual-label">お客様名</label>
-                <input type="text" id="manual-name" class="manual-input" placeholder="例：山田 花子">
-            </div>
-
-            <div class="full">
-                <label class="manual-label">担当</label>
-                <select id="manual-staff" class="manual-select">
-                    <option value="お任せ">お任せ</option>
-                </select>
-            </div>
-
-            <div class="full">
-                <label class="manual-label">要望・メモ</label>
-                <div class="memo-template-buttons">
-                    <button type="button" class="template-button" onclick="applyManualMemo('前回と同じ内容でお願いします。')">前回と同じ</button>
-                    <button type="button" class="template-button" onclick="applyManualMemo('相談しながら決めたいです。')">相談したい</button>
-                    <button type="button" class="template-button" onclick="applyManualMemo('急ぎではないので、当日相談しながら決めたいです。')">急ぎではない</button>
-                    <button type="button" class="template-button" onclick="applyManualMemo('できれば時間通りに開始したいです。')">時間通り希望</button>
-                    <button type="button" class="template-button" onclick="applyManualMemo('電話予約として登録。')">電話予約</button>
-                </div>
-                <textarea id="manual-memo" class="manual-textarea" placeholder="例：前回と同じ内容でお願いします"></textarea>
-            </div>
-        </div>
-
-        <div class="manual-actions">
-            <button id="manual-save-btn" onclick="addManualBooking()">予約を追加する</button>
-            <button class="clear-btn" onclick="clearManualForm()">入力をクリア</button>
-        </div>
-
-        <div id="manual-message" class="message"></div>
-    </div>
-
-    <div class="date-nav">
-        <button onclick="changeDate(-1)">← 前日</button>
-        <h3 id="display-date"></h3>
-        <button onclick="changeDate(1)">翌日 →</button>
-    </div>
-    
-    <div id="daily-summary" class="summary-text"></div>
-
-    <div id="booking-list"></div>
+<div class="manual-booking-grid">
+<div>
+<label class="manual-label">予約日</label>
+<input class="manual-input" id="manual-date" type="date"/>
+</div>
+<div>
+<label class="manual-label">時間</label>
+<input class="manual-input" id="manual-time" step="1800" type="time"/>
+</div>
+<div class="full">
+<label class="manual-label">お客様名</label>
+<input class="manual-input" id="manual-name" placeholder="例：山田 花子" type="text"/>
+</div>
+<div class="full">
+<label class="manual-label">担当</label>
+<select class="manual-select" id="manual-staff">
+<option value="お任せ">お任せ</option>
+</select>
+</div>
+<div class="full">
+<label class="manual-label">要望・メモ</label>
+<div class="memo-template-buttons">
+<button class="template-button" onclick="applyManualMemo('前回と同じ内容でお願いします。')" type="button">前回と同じ</button>
+<button class="template-button" onclick="applyManualMemo('相談しながら決めたいです。')" type="button">相談したい</button>
+<button class="template-button" onclick="applyManualMemo('急ぎではないので、当日相談しながら決めたいです。')" type="button">急ぎではない</button>
+<button class="template-button" onclick="applyManualMemo('できれば時間通りに開始したいです。')" type="button">時間通り希望</button>
+<button class="template-button" onclick="applyManualMemo('電話予約として登録。')" type="button">電話予約</button>
+</div>
+<textarea class="manual-textarea" id="manual-memo" placeholder="例：前回と同じ内容でお願いします"></textarea>
+</div>
+</div>
+<div class="manual-actions">
+<button id="manual-save-btn" onclick="addManualBooking()">予約を追加する</button>
+<button class="clear-btn" onclick="clearManualForm()">入力をクリア</button>
+</div>
+<div class="message" id="manual-message"></div>
+</div>
+<div class="date-nav">
+<button onclick="changeDate(-1)">← 前日</button>
+<h3 id="display-date"></h3>
+<button onclick="changeDate(1)">翌日 →</button>
+</div>
+<div class="summary-text" id="daily-summary"></div>
+<div id="booking-list"></div>
 </div>
 
-<script>
-    const sbClient = supabase.createClient(
-        'https://cbknucemarcpbscirzyv.supabase.co',
-        'sb_publishable_cT4vj0FoU1MtjFayuk7HVw_YcuSMR5J'
-    );
-
-    const DEMO_RESET_WORKER_URL = "https://dpro-salon-line-api.dpromstk2000.workers.dev/api/demo-reset";
-    const ADMIN_CODE = "1234";
-    const ADMIN_SESSION_KEY = "dpro_salon_admin_auth_ok";
-    const PAGE_PARAMS = new URLSearchParams(window.location.search);
-    const IS_EMBED_DEMO = PAGE_PARAMS.get("embed_demo") === "1";
-
-    let currentDate = new Date();
-    let nextBusinessDateString = "";
-    window.currentStaffs = [];
-
-    window.onload = () => {
-        initAdminGate();
-    };
-
-    function initAdminGate() {
-        const input = document.getElementById('admin-code-input');
-
-        input?.addEventListener('keydown', event => {
-            if (event.key === 'Enter') submitAdminCode();
-        });
-
-        if (IS_EMBED_DEMO) {
-            document.getElementById('embed-demo-banner').style.display = 'block';
-            openAdminContent();
-        } else if (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'yes') {
-            openAdminContent();
-        }
-    }
-
-    function submitAdminCode() {
-        const input = document.getElementById('admin-code-input');
-        const errorBox = document.getElementById('admin-code-error');
-        const value = (input?.value || '').trim();
-
-        if (value !== ADMIN_CODE) {
-            errorBox.textContent = '管理コードが違います。';
-            input?.focus();
-            input?.select();
-            return;
-        }
-
-        sessionStorage.setItem(ADMIN_SESSION_KEY, 'yes');
-        errorBox.textContent = '';
-        openAdminContent();
-    }
-
-    async function openAdminContent() {
-        document.getElementById('admin-login').style.display = 'none';
-        document.getElementById('admin-content').style.display = 'block';
-
-        initClosedDateInput();
-        initManualDateInput();
-        await loadSettings();
-        await fetchStaffs();
-        await fetchClosedDays();
-        await fetchQuickSummary();
-    }
-
-    function logoutAdmin() {
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
-        location.reload();
-    }
-
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[char]));
-    }
-
-    function toLocalDateString(date) {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }
-
-    function parseLocalDate(dateStr) {
-        const [y, m, d] = dateStr.split('-').map(Number);
-        return new Date(y, m - 1, d);
-    }
-
-    function getTodayString() {
-        return toLocalDateString(new Date());
-    }
-
-    function getTomorrowString() {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        return toLocalDateString(d);
-    }
-
-    function getTwoMonthsLaterString() {
-        const d = new Date();
-        d.setMonth(d.getMonth() + 2);
-        return toLocalDateString(d);
-    }
-
-    function formatDate(dateStr) {
-        if (!dateStr) return '';
-        const [y, m, d] = dateStr.split('-');
-        const date = new Date(Number(y), Number(m) - 1, Number(d));
-        const weeks = ['日', '月', '火', '水', '木', '金', '土'];
-        return `${Number(m)}月${Number(d)}日（${weeks[date.getDay()]}）`;
-    }
-
-    function setClosedMessage(text, type = '') {
-        const box = document.getElementById('closed-message');
-        box.className = `message ${type}`;
-        box.innerHTML = text ? escapeHtml(text) : '';
-    }
-
-    function setDemoResetMessage(text, type = '') {
-        const box = document.getElementById('demo-reset-message');
-        box.className = `message ${type}`;
-        box.innerHTML = text ? escapeHtml(text).replace(/\n/g, '<br>') : '';
-    }
-
-    function setManualMessage(text, type = '') {
-        const box = document.getElementById('manual-message');
-        box.className = `message ${type}`;
-        box.innerHTML = text ? escapeHtml(text).replace(/\n/g, '<br>') : '';
-    }
-
-    function initClosedDateInput() {
-        const dateInput = document.getElementById('closed-date');
-        dateInput.min = getTodayString();
-        dateInput.max = getTwoMonthsLaterString();
-    }
-
-    function initManualDateInput() {
-        const dateInput = document.getElementById('manual-date');
-        dateInput.min = getTodayString();
-        dateInput.max = getTwoMonthsLaterString();
-        dateInput.value = toLocalDateString(currentDate);
-    }
-
-    function toggleSettings() {
-        const area = document.getElementById('settings-area');
-        const btn = document.querySelector('.toggle-btn');
-
-        if (area.style.display === 'none' || area.style.display === '') {
-            area.style.display = 'block';
-            btn.innerText = '⚙️ 店舗設定・スタッフ管理を閉じる ▲';
-        } else {
-            area.style.display = 'none';
-            btn.innerText = '⚙️ 店舗設定・スタッフ管理を開く ▼';
-        }
-    }
-
-    async function resetDemoData() {
-        if (IS_EMBED_DEMO) {
-            alert("製品紹介画面ではデモデータ準備は実行できません。");
-            return;
-        }
-        if (!DEMO_RESET_WORKER_URL) {
-            alert('DEMOリセット用Worker URLが設定されていません。');
-            return;
-        }
-
-        const ok = confirm(
-            '営業前DEMOデータを作り直しますか？\n\n' +
-            '・DEMO予約を今日基準で作り直します\n' +
-            '・定休日は月曜日になります\n' +
-            '・火曜日に臨時休業日が入ります\n' +
-            '・あなたのLINE予約履歴はリセットされます'
-        );
-
-        if (!ok) return;
-
-        const password = ADMIN_CODE;
-
-        const btn = document.getElementById('demo-reset-btn');
-
-        btn.disabled = true;
-        btn.innerText = 'DEMO準備中...';
-        setDemoResetMessage('DEMOデータを準備しています...', '');
-
-        try {
-            const response = await fetch(DEMO_RESET_WORKER_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-demo-reset-secret': password.trim()
-                },
-                body: JSON.stringify({})
-            });
-
-            const result = await response.json().catch(() => null);
-
-            if (!response.ok || !result || result.ok === false) {
-                const detail = result?.error || result?.detail || '不明なエラー';
-                setDemoResetMessage('DEMO準備に失敗しました。\n' + JSON.stringify(detail), 'error');
-                return;
-            }
-
-            setDemoResetMessage(
-                '営業前DEMOデータを準備しました。\n本日と次の営業日の予約件数、定休日、臨時休業日を更新しました。',
-                'success'
-            );
-
-            currentDate = new Date();
-
-            await loadSettings();
-            await fetchStaffs();
-            await fetchClosedDays();
-            await fetchQuickSummary();
-            await fetchBookings();
-
-        } catch (error) {
-            setDemoResetMessage('DEMO準備に失敗しました。\n' + error.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerText = '営業前DEMOを準備する';
-        }
-    }
-
-    async function loadSettings() {
-        const { data, error } = await sbClient
-            .from('salon_settings')
-            .select('*')
-            .eq('id', 1)
-            .single();
-
-        if (error) {
-            alert('店舗設定の取得に失敗しました: ' + error.message);
-            return;
-        }
-
-        if (data) {
-            document.getElementById('open-time').value = data.open_time;
-            document.getElementById('close-time').value = data.close_time;
-            
-            const holidays = data.regular_holidays ? data.regular_holidays.split(',') : [];
-
-            document.querySelectorAll('.hol-cb').forEach(cb => {
-                cb.checked = holidays.includes(cb.value);
-            });
-        }
-    }
-
-    async function findNextBusinessDateString() {
-        const startDate = getTomorrowString();
-        const endDate = getTwoMonthsLaterString();
-
-        const { data: setting } = await sbClient
-            .from('salon_settings')
-            .select('regular_holidays')
-            .eq('id', 1)
-            .single();
-
-        const holidays = setting?.regular_holidays
-            ? setting.regular_holidays.split(',').filter(Boolean)
-            : [];
-
-        const { data: closedDays } = await sbClient
-            .from('salon_closed_days')
-            .select('closed_date')
-            .gte('closed_date', startDate)
-            .lte('closed_date', endDate);
-
-        const closedSet = new Set((closedDays || []).map(item => item.closed_date));
-
-        for (let i = 1; i <= 60; i++) {
-            const d = new Date();
-            d.setDate(d.getDate() + i);
-
-            const dateStr = toLocalDateString(d);
-            const dow = String(d.getDay());
-
-            if (holidays.includes(dow)) continue;
-            if (closedSet.has(dateStr)) continue;
-
-            return dateStr;
-        }
-
-        return '';
-    }
-
-    async function fetchQuickSummary() {
-        const todayStr = getTodayString();
-
-        await updateQuickCard(todayStr, 'today-count', 'today-note');
-
-        nextBusinessDateString = await findNextBusinessDateString();
-
-        if (!nextBusinessDateString) {
-            document.getElementById('next-business-count').innerText = '--件';
-            document.getElementById('next-business-note').innerText = '次の営業日を取得できませんでした';
-            return;
-        }
-
-        await updateQuickCard(
-            nextBusinessDateString,
-            'next-business-count',
-            'next-business-note'
-        );
-    }
-
-    async function updateQuickCard(dateStr, countId, noteId) {
-        const countEl = document.getElementById(countId);
-        const noteEl = document.getElementById(noteId);
-
-        countEl.innerText = '--件';
-        noteEl.innerText = '読み込み中...';
-
-        const { data: bookings, error: bookingError } = await sbClient
-            .from('bookings')
-            .select('id')
-            .gte('start_datetime', `${dateStr}T00:00:00`)
-            .lte('start_datetime', `${dateStr}T23:59:59`);
-
-        if (bookingError) {
-            countEl.innerText = '--件';
-            noteEl.innerText = '取得失敗';
-            return;
-        }
-
-        const count = bookings ? bookings.length : 0;
-        countEl.innerText = `${count}件`;
-
-        const { data: setting } = await sbClient
-            .from('salon_settings')
-            .select('regular_holidays')
-            .eq('id', 1)
-            .single();
-
-        const { data: closedRows } = await sbClient
-            .from('salon_closed_days')
-            .select('*')
-            .eq('closed_date', dateStr)
-            .limit(1);
-
-        const closedDay = closedRows && closedRows.length > 0 ? closedRows[0] : null;
-
-        const [y, m, d] = dateStr.split('-');
-        const date = new Date(Number(y), Number(m) - 1, Number(d));
-        const holidays = setting?.regular_holidays ? setting.regular_holidays.split(',') : [];
-        const isRegularHoliday = holidays.includes(String(date.getDay()));
-
-        if (closedDay) {
-            noteEl.innerText = `臨時休業：${(closedDay.reason || '理由なし').replace('【DEMO】', '')}`;
-            return;
-        }
-
-        if (isRegularHoliday) {
-            noteEl.innerText = '定休日';
-            return;
-        }
-
-        noteEl.innerText = `${formatDate(dateStr)}の予約`;
-    }
-
-    async function saveSettings() {
-        const checkedHolidays = Array.from(document.querySelectorAll('.hol-cb:checked'))
-            .map(cb => cb.value)
-            .join(',');
-
-        const { error } = await sbClient
-            .from('salon_settings')
-            .update({
-                open_time: document.getElementById('open-time').value,
-                close_time: document.getElementById('close-time').value,
-                regular_holidays: checkedHolidays
-            })
-            .eq('id', 1);
-        
-        if (error) {
-            alert('設定の保存に失敗しました: ' + error.message);
-            return;
-        }
-
-        alert('設定を保存しました');
-        await fetchBookings();
-        await fetchQuickSummary();
-    }
-
-    async function fetchClosedDays() {
-        const list = document.getElementById('closed-days-list');
-        list.innerHTML = '読み込み中...';
-
-        const today = getTodayString();
-        const twoMonthsLater = getTwoMonthsLaterString();
-
-        const { data, error } = await sbClient
-            .from('salon_closed_days')
-            .select('*')
-            .gte('closed_date', today)
-            .lte('closed_date', twoMonthsLater)
-            .order('closed_date', { ascending: true });
-
-        if (error) {
-            list.innerHTML = `
-                <div class="closed-day-box">
-                    臨時休業日の取得に失敗しました。<br>
-                    STEP6-1のSQLがまだの場合は、先にSQLを実行してください。
-                </div>
-            `;
-            return;
-        }
-
-        if (!data || data.length === 0) {
-            list.innerHTML = `
-                <div class="closed-day-box">
-                    現在、直近2カ月以内の臨時休業日は登録されていません。
-                </div>
-            `;
-            return;
-        }
-
-        list.innerHTML = '';
-
-        data.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'closed-item';
-
-            div.innerHTML = `
-                <div>
-                    <div class="closed-date">${escapeHtml(formatDate(item.closed_date))}</div>
-                    <div class="closed-reason">${escapeHtml((item.reason || '理由なし').replace('【DEMO】', ''))}</div>
-                </div>
-                <button class="delete-btn" onclick="deleteClosedDay(${item.id})">削除</button>
-            `;
-
-            list.appendChild(div);
-        });
-    }
-
-    async function addClosedDay() {
-        const addBtn = document.getElementById('add-closed-btn');
-        const closedDate = document.getElementById('closed-date').value;
-        const reason = document.getElementById('closed-reason').value.trim();
-
-        setClosedMessage('');
-
-        if (!closedDate) {
-            alert('休業日を選択してください。');
-            return;
-        }
-
-        const today = getTodayString();
-        const twoMonthsLater = getTwoMonthsLaterString();
-
-        if (closedDate < today || closedDate > twoMonthsLater) {
-            alert('登録できるのは今日から直近2カ月以内の日付です。');
-            return;
-        }
-
-        addBtn.disabled = true;
-        addBtn.innerText = '登録中...';
-
-        const { error } = await sbClient
-            .from('salon_closed_days')
-            .insert({
-                closed_date: closedDate,
-                reason: reason
-            });
-
-        addBtn.disabled = false;
-        addBtn.innerText = 'この日を臨時休業にする';
-
-        if (error) {
-            if (error.message && error.message.includes('duplicate key')) {
-                setClosedMessage('この日はすでに臨時休業日として登録されています。', 'error');
-            } else {
-                setClosedMessage('登録に失敗しました: ' + error.message, 'error');
-            }
-            return;
-        }
-
-        document.getElementById('closed-date').value = '';
-        document.getElementById('closed-reason').value = '';
-
-        setClosedMessage('臨時休業日を登録しました。', 'success');
-
-        await fetchClosedDays();
-        await fetchBookings();
-        await fetchQuickSummary();
-    }
-
-    async function deleteClosedDay(id) {
-        if (!confirm('この臨時休業日を削除しますか？')) return;
-
-        const { error } = await sbClient
-            .from('salon_closed_days')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert('削除に失敗しました: ' + error.message);
-            return;
-        }
-
-        setClosedMessage('臨時休業日を削除しました。', 'success');
-
-        await fetchClosedDays();
-        await fetchBookings();
-        await fetchQuickSummary();
-    }
-
-    async function fetchStaffs() {
-        const { data, error } = await sbClient
-            .from('staffs')
-            .select('*')
-            .order('id', { ascending: true });
-
-        if (error) {
-            alert('スタッフ情報の取得に失敗しました: ' + error.message);
-            return;
-        }
-
-        window.currentStaffs = data || [];
-
-        document.getElementById('staff-list-grid').innerHTML = window.currentStaffs.map(s => `
-            <div class="staff-tag">
-                ${escapeHtml(s.name)}
-                <button onclick="deleteStaff(${s.id})">✕</button>
-            </div>
-        `).join('');
-
-        renderManualStaffOptions();
-
-        await fetchBookings();
-        await fetchQuickSummary();
-    }
-
-    function renderManualStaffOptions() {
-        const select = document.getElementById('manual-staff');
-        const currentValue = select.value || 'お任せ';
-
-        select.innerHTML = '<option value="お任せ">お任せ</option>';
-
-        window.currentStaffs.forEach(staff => {
-            const option = document.createElement('option');
-            option.value = staff.name;
-            option.textContent = staff.name;
-            select.appendChild(option);
-        });
-
-        if ([...select.options].some(option => option.value === currentValue)) {
-            select.value = currentValue;
-        }
-    }
-
-    async function addStaff() {
-        const name = document.getElementById('new-staff-name').value.trim();
-
-        if (!name) return;
-
-        const { error } = await sbClient
-            .from('staffs')
-            .insert({ name: name });
-
-        if (error) {
-            alert('スタッフ追加に失敗しました: ' + error.message);
-            return;
-        }
-
-        document.getElementById('new-staff-name').value = '';
-        await fetchStaffs();
-    }
-
-    async function deleteStaff(id) {
-        if (!confirm('スタッフを削除しますか？')) return;
-
-        const { error } = await sbClient
-            .from('staffs')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert('スタッフ削除に失敗しました: ' + error.message);
-            return;
-        }
-
-        await fetchStaffs();
-    }
-
-    function applyManualMemo(text) {
-        document.getElementById('manual-memo').value = text;
-        document.getElementById('manual-memo').focus();
-    }
-
-    function clearManualForm() {
-        document.getElementById('manual-date').value = toLocalDateString(currentDate);
-        document.getElementById('manual-time').value = '';
-        document.getElementById('manual-name').value = '';
-        document.getElementById('manual-staff').value = 'お任せ';
-        document.getElementById('manual-memo').value = '';
-        setManualMessage('');
-    }
-
-    function setManualBookingTime(time) {
-        const dateStr = toLocalDateString(currentDate);
-
-        document.getElementById('manual-date').value = dateStr;
-        document.getElementById('manual-time').value = time;
-        setManualMessage(`${formatDate(dateStr)} ${time} の予約を入力できます。`, 'success');
-
-        const box = document.getElementById('manual-booking-box');
-        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        setTimeout(() => {
-            document.getElementById('manual-name').focus();
-        }, 350);
-    }
-
-    async function checkManualBookingDate(dateStr) {
-        const { data: setting, error: settingError } = await sbClient
-            .from('salon_settings')
-            .select('regular_holidays')
-            .eq('id', 1)
-            .single();
-
-        if (settingError || !setting) {
-            return { ok: false, message: '店舗設定の取得に失敗しました。' };
-        }
-
-        const { data: closedRows, error: closedError } = await sbClient
-            .from('salon_closed_days')
-            .select('*')
-            .eq('closed_date', dateStr)
-            .limit(1);
-
-        if (closedError) {
-            return { ok: false, message: '臨時休業日の確認に失敗しました。' };
-        }
-
-        if (closedRows && closedRows.length > 0) {
-            const reason = closedRows[0].reason
-                ? `\n理由：${closedRows[0].reason.replace('【DEMO】', '')}`
-                : '';
-            return { ok: false, message: `この日は臨時休業日です。${reason}` };
-        }
-
-        const date = parseLocalDate(dateStr);
-        const holidays = setting.regular_holidays ? setting.regular_holidays.split(',') : [];
-
-        if (holidays.includes(String(date.getDay()))) {
-            return { ok: false, message: 'この日は定休日です。' };
-        }
-
-        return { ok: true, message: '' };
-    }
-
-    async function addManualBooking() {
-        const saveBtn = document.getElementById('manual-save-btn');
-        const dateStr = document.getElementById('manual-date').value;
-        const time = document.getElementById('manual-time').value;
-        const name = document.getElementById('manual-name').value.trim();
-        const staffName = document.getElementById('manual-staff').value;
-        const memo = document.getElementById('manual-memo').value.trim();
-
-        setManualMessage('');
-
-        if (!dateStr) {
-            setManualMessage('予約日を選択してください。', 'error');
-            return;
-        }
-
-        if (!time) {
-            setManualMessage('時間を選択してください。', 'error');
-            return;
-        }
-
-        if (!name) {
-            setManualMessage('お客様名を入力してください。', 'error');
-            return;
-        }
-
-        const today = getTodayString();
-        const twoMonthsLater = getTwoMonthsLaterString();
-
-        if (dateStr < today || dateStr > twoMonthsLater) {
-            setManualMessage('予約日は今日から直近2カ月以内で選択してください。', 'error');
-            return;
-        }
-
-        const canBook = await checkManualBookingDate(dateStr);
-
-        if (!canBook.ok) {
-            setManualMessage(canBook.message, 'error');
-            return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.innerText = '追加中...';
-
-        const { error } = await sbClient
-            .from('bookings')
-            .insert({
-                customer_name: name,
-                memo: memo,
-                staff_name: staffName,
-                start_datetime: `${dateStr}T${time}:00`,
-                line_user_id: 'manual_booking'
-            });
-
-        saveBtn.disabled = false;
-        saveBtn.innerText = '予約を追加する';
-
-        if (error) {
-            setManualMessage('予約追加に失敗しました。\n' + error.message, 'error');
-            return;
-        }
-
-        setManualMessage(`${formatDate(dateStr)} ${time} に予約を追加しました。`, 'success');
-
-        currentDate = parseLocalDate(dateStr);
-
-        document.getElementById('manual-name').value = '';
-        document.getElementById('manual-memo').value = '';
-        document.getElementById('manual-time').value = '';
-
-        await fetchBookings();
-        await fetchQuickSummary();
-    }
-
-    function changeDate(d) { 
-        currentDate.setDate(currentDate.getDate() + d);
-        document.getElementById('manual-date').value = toLocalDateString(currentDate);
-        fetchBookings(); 
-    }
-
-    function goToToday() {
-        currentDate = new Date();
-        document.getElementById('manual-date').value = toLocalDateString(currentDate);
-        fetchBookings();
-    }
-
-    function goToNextBusinessDay() {
-        if (!nextBusinessDateString) {
-            alert('次の営業日を取得できませんでした。');
-            return;
-        }
-
-        currentDate = parseLocalDate(nextBusinessDateString);
-        document.getElementById('manual-date').value = nextBusinessDateString;
-        fetchBookings();
-    }
-
-    async function fetchBookings() {
-        const dateStr = toLocalDateString(currentDate);
-        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-        const dayText = dayNames[currentDate.getDay()];
-
-        document.getElementById('display-date').innerText = `${dateStr} (${dayText})`;
-
-        const { data: set, error: settingError } = await sbClient
-            .from('salon_settings')
-            .select('*')
-            .eq('id', 1)
-            .single();
-
-        if (settingError || !set) {
-            document.getElementById('daily-summary').innerText = '店舗設定の取得に失敗しました。';
-            document.getElementById('booking-list').innerHTML = '';
-            return;
-        }
-
-        const { data: bookings, error: bookingError } = await sbClient
-            .from('bookings')
-            .select('*')
-            .gte('start_datetime', `${dateStr}T00:00:00`)
-            .lte('start_datetime', `${dateStr}T23:59:59`)
-            .order('start_datetime');
-
-        if (bookingError) {
-            document.getElementById('daily-summary').innerText = '予約情報の取得に失敗しました。';
-            document.getElementById('booking-list').innerHTML = '';
-            return;
-        }
-
-        const { data: closedRows } = await sbClient
-            .from('salon_closed_days')
-            .select('*')
-            .eq('closed_date', dateStr)
-            .limit(1);
-
-        const closedDay = closedRows && closedRows.length > 0 ? closedRows[0] : null;
-
-        const holidays = set.regular_holidays ? set.regular_holidays.split(',') : [];
-        const isRegularHoliday = holidays.includes(String(currentDate.getDay()));
-
-        if (closedDay || isRegularHoliday) {
-            renderClosedDayView(bookings || [], closedDay, isRegularHoliday);
-            return;
-        }
-
-        const staffCount = window.currentStaffs.length;
-        const capacity = staffCount > 0 ? staffCount : 1;
-        const startH = parseInt(set.open_time.split(':')[0]);
-        const endH = parseInt(set.close_time.split(':')[0]);
-        
-        let totalSlots = 0;
-        let html = '';
-
-        for (let h = startH; h < endH; h++) {
-            [0, 30].forEach(m => {
-                const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                const timeBookings = bookings?.filter(b => b.start_datetime.substring(11, 16) === t) || [];
-                const bookedCount = timeBookings.length;
-                
-                totalSlots += capacity;
-                
-                html += `
-                    <div class="booking-row">
-                        <span class="time-label">${t}</span>
-                        <div class="booking-content">
-                `;
-                
-                if (bookedCount > 0) {
-                    timeBookings.forEach(b => {
-                        const memoHtml = b.memo
-                            ? `<span class="memo-text">📝 ${escapeHtml(b.memo.replace('【DEMO】', ''))}</span>`
-                            : '';
-
-                        html += `
-                            <div class="booked-item">
-                                <div>
-                                    <strong>${escapeHtml(b.customer_name)}</strong> [${escapeHtml(b.staff_name)}]
-                                    ${memoHtml}
-                                </div>
-                                <button class="delete-btn" onclick="deleteBooking(${b.id})">削除</button>
-                            </div>
-                        `;
-                    });
-                }
-                
-                if (bookedCount < capacity) {
-                    html += `<div class="empty-slot">〇 空きがあります</div>`;
-                }
-
-                html += `</div>`;
-
-                if (bookedCount >= capacity) {
-                    html += `<button disabled style="margin-left:10px;">満席</button>`;
-                } else {
-                    html += `<button onclick="setManualBookingTime('${t}')" style="margin-left:10px;">＋ 予約</button>`;
-                }
-                
-                html += `</div>`;
-            });
-        }
-        
-        const totalBooked = bookings ? bookings.length : 0;
-        const remaining = totalSlots > 0 ? totalSlots - totalBooked : 0;
-
-        document.getElementById('daily-summary').innerText =
-            `この日の予約：${totalBooked}件 / 残り空き枠：${remaining}枠`;
-        
-        document.getElementById('booking-list').innerHTML = html;
-    }
-
-    function renderClosedDayView(bookings, closedDay, isRegularHoliday) {
-        const reasonText = closedDay
-            ? `臨時休業日：${(closedDay.reason || '理由なし').replace('【DEMO】', '')}`
-            : '定休日です';
-
-        document.getElementById('daily-summary').innerText =
-            `${reasonText} / 予約：${bookings.length}件`;
-
-        let html = `
-            <div class="closed-day-box">
-                <strong>${escapeHtml(reasonText)}</strong><br>
-                この日は予約枠を表示しません。
-            </div>
-        `;
-
-        if (bookings.length > 0) {
-            html += `<h4 style="margin-top:20px;">この日に入っている予約</h4>`;
-
-            bookings.forEach(b => {
-                const time = b.start_datetime.substring(11, 16);
-                const memoHtml = b.memo
-                    ? `<span class="memo-text">📝 ${escapeHtml(b.memo.replace('【DEMO】', ''))}</span>`
-                    : '';
-
-                html += `
-                    <div class="booked-item">
-                        <div>
-                            <strong>${escapeHtml(time)}</strong>　
-                            ${escapeHtml(b.customer_name)} [${escapeHtml(b.staff_name)}]
-                            ${memoHtml}
-                        </div>
-                        <button class="delete-btn" onclick="deleteBooking(${b.id})">削除</button>
-                    </div>
-                `;
-            });
-        }
-
-        document.getElementById('booking-list').innerHTML = html;
-    }
-
-    async function deleteBooking(id) { 
-        if (!confirm('この予約を削除しますか？')) return;
-
-        const { error } = await sbClient
-            .from('bookings')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert('予約削除に失敗しました: ' + error.message);
-            return;
-        }
-
-        await fetchBookings();
-        await fetchQuickSummary();
-    }
-</script>
-</body>
+<script src="salon-api3-common.js"></script><script src="salon-admin-api3.js"></script></body>
 </html>
