@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>DPRO SALON｜操作チュートリアル</title>
+<link rel="stylesheet" href="tutorial.css?v=R3-20260828">
+</head>
+<body>
+<iframe id="dpro-tutorial-frame" title="DPRO SALON 製品操作画面" src="index.html?embed_demo=1"></iframe>
+
+<section id="dpro-tutorial-launcher" class="dpro-launcher" aria-labelledby="dpro-launcher-title">
+  <div class="dpro-launcher-card">
+    <div class="dpro-kicker">DPRO SALON / FIRST10</div>
+    <h1 id="dpro-launcher-title">美容サロン操作チュートリアル</h1>
+    <p>予約登録や削除を行わない製品紹介モードで、お客様 → スタッフ → iPad → オーナーPCの流れを10ステップで確認します。</p>
+    <div class="dpro-launcher-actions">
+      <button id="dpro-start" type="button">最初から開始</button>
+      <button id="dpro-resume" class="secondary" type="button">続きから再開</button>
+      <button id="dpro-replay" class="secondary" type="button">もう一度見る</button>
+    </div>
+    <p class="dpro-safety">安全モード：予約確定・キャンセル・予約追加・削除・DEMOリセット・設定保存はチュートリアルから実行しません。</p>
+  </div>
+</section>
+
+<div id="dpro-target-highlight" class="dpro-highlight" aria-hidden="true"></div>
+
+<aside id="dpro-tutorial-card" class="dpro-card" role="dialog" aria-modal="false" aria-labelledby="dpro-step-title" tabindex="-1">
+  <div id="dpro-drag-handle" class="dpro-drag-handle" tabindex="0" role="button" aria-label="チュートリアルカードを移動">
+    <span class="dpro-grip" aria-hidden="true">⋮⋮</span>
+    <span>DPRO 操作ガイド</span>
+    <button id="dpro-close" class="icon-button" type="button" aria-label="チュートリアルを閉じる">×</button>
+  </div>
+  <div class="dpro-card-body">
+    <div class="dpro-step-meta"><span id="dpro-step-no">1 / 10</span><span id="dpro-role">CUSTOMER</span></div>
+    <h2 id="dpro-step-title"></h2>
+    <p id="dpro-step-copy"></p>
+    <div id="dpro-target-status" class="dpro-target-status" aria-live="polite">対象を確認中…</div>
+    <div class="dpro-controls">
+      <button id="dpro-back" class="secondary" type="button">戻る</button>
+      <button id="dpro-next" type="button">次へ</button>
+      <button id="dpro-skip" class="ghost" type="button">スキップ</button>
+    </div>
+    <div class="dpro-key-help">Tabで移動 / ← 戻る / → 次へ / Esc 閉じる</div>
+  </div>
+</aside>
+
+<button id="dpro-dock" class="dpro-dock" type="button">チュートリアルを再開</button>
+
+<section id="dpro-finish" class="dpro-finish" aria-labelledby="dpro-finish-title">
+  <div class="dpro-launcher-card">
+    <div class="dpro-kicker">FIRST10 COMPLETE</div>
+    <h2 id="dpro-finish-title">10ステップの確認が完了しました</h2>
+    <p id="dpro-finish-copy">お客様・スタッフ・iPad・オーナーPCの予約共有フローを確認しました。</p>
+    <div class="dpro-launcher-actions">
+      <button id="dpro-finish-replay" type="button">Replay / もう一度見る</button>
+      <button id="dpro-finish-close" class="secondary" type="button">閉じる</button>
+    </div>
+  </div>
+</section>
+
+<script src="tutorial-runtime.js?v=R3-20260828"></script>
+</body>
+</html>
