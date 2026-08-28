@@ -1,0 +1,37 @@
+name: SALON Tutorial R4 Guide Center LIVE QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'guide-center.html'
+      - 'guide-center.css'
+      - 'guide-center.js'
+      - 'tutorial-r4-live-qa.mjs'
+      - '.github/workflows/tutorial-r4-live-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: npm install --no-save playwright@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Reconfirm R3 LIVE QA
+        env:
+          DPRO_BASE: https://dpromstk2000-lab.github.io/liff-salon-reserve/
+        run: node tutorial-r3-live-qa.mjs
+      - name: Run R4 Guide Center exact-width LIVE QA
+        env:
+          DPRO_BASE: https://dpromstk2000-lab.github.io/liff-salon-reserve/
+        run: node tutorial-r4-live-qa.mjs
