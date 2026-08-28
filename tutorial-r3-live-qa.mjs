@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 const BASE=process.env.DPRO_BASE||'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
-const EXPECT='SALON-TUTORIAL-R3-V1.1-20260828';
+const EXPECT='SALON-TUTORIAL-R3-V1.2-20260828';
 const VIEWPORTS=[{w:1440,h:1000,touch:false},{w:1024,h:768,touch:false},{w:390,h:844,touch:true},{w:320,h:720,touch:true}];
 const badMethods=new Set(['POST','PUT','PATCH','DELETE']);
 const results=[];
