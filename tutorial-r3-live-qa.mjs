@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const EXPECT = 'SALON-TUTORIAL-R3-V1.2-20260828';
-const QA_REV = 'SALON-R3-QA-CACHE-FIX-V1.2-20260829';
+const QA_REV = 'SALON-R3-QA-RESUME-HARNESS-FIX-V1.3-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -33,7 +33,7 @@ async function waitPublished(page) {
   await verifyPublishedRuntime(page);
   let last = null;
   for (let i = 0; i < 24; i++) {
-    const pageUrl = `${BASE}tutorial.html?qa=1&qa_v=${encodeURIComponent(EXPECT)}&b=${bust(i)}`;
+    const pageUrl = `${BASE}tutorial.html?qa=0&qa_v=${encodeURIComponent(EXPECT)}&b=${bust(i)}`;
     const r = await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null);
     if (r?.ok()) {
       await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
@@ -100,6 +100,8 @@ async function basicViewportQA(browser, v) {
   });
 
   await waitPublished(page);
+  // Start explicitly. qa=0 prevents reload from resetting saved cross-page progress.
+  await page.evaluate(() => window.DPRO_TUTORIAL_QA.start());
   let s = await waitTarget(page);
   assert(s.version === EXPECT, `Runtime marker mismatch: ${s.version}`);
   assert(s.first10Count === 10, 'First10 count != 10');
