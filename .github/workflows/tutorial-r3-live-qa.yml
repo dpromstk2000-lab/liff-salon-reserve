@@ -1,0 +1,30 @@
+name: SALON Tutorial R3 LIVE QA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tutorial.html'
+      - 'tutorial.css'
+      - 'tutorial-runtime.js'
+      - 'tutorial-r3-live-qa.mjs'
+      - '.github/workflows/tutorial-r3-live-qa.yml'
+permissions:
+  contents: read
+jobs:
+  live-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: npm install --no-save playwright@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run exact-width public LIVE QA
+        env:
+          DPRO_BASE: https://dpromstk2000-lab.github.io/liff-salon-reserve/
+        run: node tutorial-r3-live-qa.mjs
