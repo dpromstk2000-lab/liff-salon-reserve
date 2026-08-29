@@ -1,6 +1,7 @@
 (() => {
 'use strict';
 const VERSION='SALON-GUIDE-CENTER-R4-V1.0-20260829';
+const REVISION='SALON-GUIDE-BOOT-READY-V1.9-20260829';
 const R3_VERSION='SALON-TUTORIAL-R3-V1.2-20260828';
 const KEY='dpro_tutorial_salon_v1_1';
 const GUIDES=[
@@ -162,6 +163,7 @@ refreshState();
 
 window.DPRO_GUIDE_CENTER_QA={
   VERSION,
+  REVISION,
   R3_VERSION,
   KEY,
   GUIDES:Object.freeze(GUIDES.map(x=>({...x}))),
@@ -171,6 +173,7 @@ window.DPRO_GUIDE_CENTER_QA={
   close:closeOverlay,
   snapshot:()=>({
     version:VERSION,
+    revision:REVISION,
     r3Version:R3_VERSION,
     count:GUIDES.length,
     overlayOpen:overlay.classList.contains('is-open'),

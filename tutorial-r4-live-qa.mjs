@@ -3,7 +3,8 @@ import { chromium } from 'playwright';
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
-const QA_REV = 'SALON-R4-QA-SCOPE-ISOLATION-FIX-V1.8-20260829';
+const GUIDE_REV = 'SALON-GUIDE-BOOT-READY-V1.9-20260829';
+const QA_REV = 'SALON-R4-QA-PUBLISHED-REV-GATE-V1.10-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -20,25 +21,25 @@ async function waitPublished(page) {
   let last = null;
   for (let i = 0; i < 60; i++) {
     const src = await page.request.get(
-      `${BASE}guide-center.js?qa=${encodeURIComponent(EXPECT)}&b=${bust('src')}`,
+      `${BASE}guide-center.js?qa=${encodeURIComponent(GUIDE_REV)}&b=${bust('src')}`,
       { headers: { 'Cache-Control': 'no-cache, no-store, max-age=0', Pragma: 'no-cache' }, timeout: 30000 }
     ).catch(() => null);
     if (src?.ok()) {
       const text = await src.text();
-      if (text.includes(`const VERSION='${EXPECT}'`)) {
-        const r = await page.goto(`${BASE}guide-center.html?qa=1&b=${bust(i)}`, {
+      if (text.includes(`const VERSION='${EXPECT}'`) && text.includes(`const REVISION='${GUIDE_REV}'`)) {
+        const r = await page.goto(`${BASE}guide-center.html?qa=${encodeURIComponent(GUIDE_REV)}&b=${bust(i)}`, {
           waitUntil: 'domcontentloaded', timeout: 30000,
         }).catch(() => null);
         if (r?.ok()) {
-          await page.waitForFunction(v => window.DPRO_GUIDE_CENTER_QA?.VERSION === v, EXPECT, { timeout: 10000 }).catch(() => {});
-          last = await page.evaluate(() => window.DPRO_GUIDE_CENTER_QA?.VERSION || '');
-          if (last === EXPECT) return;
+          await page.waitForFunction(([v, rev]) => window.DPRO_GUIDE_CENTER_QA?.VERSION === v && window.DPRO_GUIDE_CENTER_QA?.REVISION === rev, [EXPECT, GUIDE_REV], { timeout: 10000 }).catch(() => {});
+          last = await page.evaluate(() => ({ version: window.DPRO_GUIDE_CENTER_QA?.VERSION || '', revision: window.DPRO_GUIDE_CENTER_QA?.REVISION || '' }));
+          if (last.version === EXPECT && last.revision === GUIDE_REV) return;
         }
       }
     }
     await sleep(5000);
   }
-  throw new Error(`Published Guide Center marker not found; last=${last}`);
+  throw new Error(`Published Guide Center revision not found; expected=${GUIDE_REV}; last=${JSON.stringify(last)}`);
 }
 
 async function frameQA(page) {
@@ -183,6 +184,7 @@ async function qaViewport(browser, v) {
   });
 
   let g = await page.evaluate(() => window.DPRO_GUIDE_CENTER_QA.snapshot());
+  assert(g.revision === GUIDE_REV, `Guide revision mismatch: ${g.revision}`);
   assert(g.count === 10, 'Guide count != 10');
   assert(g.docScrollWidth <= g.innerWidth, 'Guide html overflow');
   assert(g.bodyScrollWidth <= g.innerWidth, 'Guide body overflow');
