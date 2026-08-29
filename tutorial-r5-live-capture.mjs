@@ -10,12 +10,12 @@ const MANUALS = [
   {
     name: 'Quick Start',
     file: 'DPRO_TUTORIAL_SALON_QUICK_START_V1.0.pdf',
-    sha256: '547f841dfefa86210b024b526c7a2a0aa480e5d57ab333dfaf44aff39fb06d5b'
+    sha256: '83d00ef1d25a64329e682c2fb1b65a621ed0fd46e231704a1310aafc9355b9be'
   },
   {
     name: 'Detailed Manual',
     file: 'DPRO_TUTORIAL_SALON_DETAILED_MANUAL_V1.0.pdf',
-    sha256: 'bac54fd1eedb1d5c24448a9833f67a180ae6f4ad7d122bceb666c03ee3d78023'
+    sha256: '7bd9f2bcf42f839ea1b6164af30722d901c8a3ab38ec706a715a68ac4ed95d7a'
   }
 ];
 
@@ -23,7 +23,7 @@ await fs.rm(OUT,{recursive:true,force:true});
 await fs.mkdir(OUT,{recursive:true});
 
 const evidence = {
-  revision: 'SALON-R5-LIVE-CAPTURE-PUBLIC-PDF-GATE-V1.1-20260829',
+  revision: 'SALON-R5-LIVE-CAPTURE-PUBLIC-PDF-GATE-V1.2-20260829',
   base: BASE,
   screenshots: [],
   publicManual: [],
