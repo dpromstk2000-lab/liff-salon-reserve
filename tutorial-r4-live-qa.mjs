@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
-const QA_REV = 'SALON-R4-QA-SETTLE-FIX-V1.2-20260829';
+const QA_REV = 'SALON-R4-QA-NESTED-TARGET-FIX-V1.3-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -54,13 +54,29 @@ async function frameSnap(page) {
   return page.evaluate(() => document.getElementById('guide-tutorial-frame').contentWindow.DPRO_TUTORIAL_QA.snapshot());
 }
 
-async function waitFrameTarget(page) {
-  for (let i = 0; i < 100; i++) {
-    const s = await frameSnap(page).catch(() => null);
-    if (s?.targetResolved && s.highlight.visible) return s;
+async function waitFrameTarget(page, label = '') {
+  let last = null;
+  for (let i = 0; i < 120; i++) {
+    const probe = await page.evaluate(() => {
+      const qa = document.getElementById('guide-tutorial-frame')?.contentWindow?.DPRO_TUTORIAL_QA;
+      if (!qa) return null;
+      const s = qa.snapshot();
+      const def = qa.STEPS?.[s.stepIndex] || null;
+      return {
+        snapshot: s,
+        selectorValid: !!def && (s.targetSelector === def.primary || s.targetSelector === def.fallback),
+        primary: def?.primary || '',
+        fallback: def?.fallback || '',
+      };
+    }).catch(() => null);
+    if (probe?.snapshot) last = probe;
+    if (probe?.snapshot?.targetResolved) {
+      assert(probe.selectorValid, `Resolved target is outside accepted primary/fallback at ${label || 'step'}: ${JSON.stringify(probe)}`);
+      return probe.snapshot;
+    }
     await sleep(120);
   }
-  throw new Error('Guide Center Tutorial target unresolved');
+  throw new Error(`Guide Center Tutorial target unresolved at ${label || 'step'}: ${JSON.stringify(last)}`);
 }
 
 async function settle(page) {
@@ -71,10 +87,11 @@ async function settle(page) {
 }
 
 async function nextAndSettle(page) {
+  const before = await frameSnap(page);
   await page.evaluate(() => document.getElementById('guide-tutorial-frame').contentWindow.DPRO_TUTORIAL_QA.next());
   const s = await frameSnap(page);
   if (s.status !== 'complete') {
-    await waitFrameTarget(page);
+    await waitFrameTarget(page, `step ${before.step} -> ${s.step}`);
     await settle(page);
   }
   return frameSnap(page);
@@ -127,7 +144,7 @@ async function qaViewport(browser, v) {
 
   await page.keyboard.press('Enter');
   await frameQA(page);
-  let s = await waitFrameTarget(page);
+  let s = await waitFrameTarget(page, 'Guide Start step 1');
   await settle(page);
   assert(s.step === 1 && s.first10Count === 10, 'Start alignment failed');
   assert(s.outer.innerWidth === v.w, 'Embedded Tutorial width mismatch');
@@ -156,7 +173,7 @@ async function qaViewport(browser, v) {
 
   await page.click('#guide-resume');
   await frameQA(page);
-  s = await waitFrameTarget(page);
+  s = await waitFrameTarget(page, 'Guide Resume step 4');
   await settle(page);
   assert(s.step === 4 && /staff\.html\?embed_demo=1/.test(s.frameRoute), 'Guide Resume alignment failed');
 
@@ -171,7 +188,7 @@ async function qaViewport(browser, v) {
 
   await page.click('#guide-replay');
   await frameQA(page);
-  s = await waitFrameTarget(page);
+  s = await waitFrameTarget(page, 'Guide Replay step 1');
   await settle(page);
   assert(s.step === 1 && s.status === 'running', 'Guide Replay alignment failed');
   await page.click('#guide-overlay-close');
