@@ -4,7 +4,7 @@ const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-s
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
 const GUIDE_REV = 'SALON-GUIDE-BOOT-READY-V1.9-20260829';
-const QA_REV = 'SALON-R4-QA-ACTION-STATE-SYNC-V1.11-20260829';
+const QA_REV = 'SALON-R4-QA-GUIDE-READ-ISOLATION-V1.12-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -143,7 +143,8 @@ async function nextAndSettle(page, waitReadIdle, getReadActivitySeq) {
   if (s.status !== 'complete') {
     s = await waitStepState(page, before.step + 1, `step ${before.step} -> ${before.step + 1}`);
     const routeChanged = s.frameRoute !== before.frameRoute;
-    await waitReadIdle(`after step ${before.step + 1}`, routeChanged ? actionReadSeq : null);
+    const routeNeedsPublicRead = routeChanged && /^(owner-ipad|owner)\.html\?embed_demo=1$/.test(s.frameRoute);
+    await waitReadIdle(`after step ${before.step + 1}`, routeNeedsPublicRead ? actionReadSeq : null);
     await sleep(200);
     s = await waitStepState(page, before.step + 1, `settled step ${before.step + 1}`);
   }
@@ -226,12 +227,11 @@ async function qaViewport(browser, v) {
   });
   assert(focus.id === 'guide-start' && focus.outline !== 'none', 'Guide focus not visible');
 
-  const startReadSeq = getReadActivitySeq();
   await page.keyboard.press('Enter');
   await frameQA(page);
   let s = await waitActionState(page, 'running', 1, 'Guide Start action');
   s = await waitFrameTarget(page, 'Guide Start step 1');
-  await waitReadIdle('Guide Start step 1', startReadSeq);
+  await waitReadIdle('Guide Start step 1');
   await sleep(200);
   assert(s.step === 1 && s.first10Count === 10, 'Start alignment failed');
   assert(s.outer.innerWidth === v.w, 'Embedded Tutorial width mismatch');
@@ -284,12 +284,11 @@ async function qaViewport(browser, v) {
   assert(g.replayVisible, 'Replay not exposed for R3 replay-eligible state');
 
   await waitReadIdle('before Guide Replay');
-  const replayReadSeq = getReadActivitySeq();
   await page.click('#guide-replay');
   await frameQA(page);
   s = await waitActionState(page, 'running', 1, 'Guide Replay action');
   s = await waitFrameTarget(page, 'Guide Replay step 1');
-  await waitReadIdle('Guide Replay step 1', replayReadSeq);
+  await waitReadIdle('Guide Replay step 1');
   await sleep(200);
   assert(s.step === 1 && s.status === 'running', 'Guide Replay alignment failed');
   await page.click('#guide-overlay-close');

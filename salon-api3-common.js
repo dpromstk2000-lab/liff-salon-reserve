@@ -14,6 +14,14 @@
   const clean = v => String(v ?? '').trim();
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const isEmbed = () => new URLSearchParams(location.search).get('embed_demo') === '1';
+  const isGuideTutorial = () => {
+    try {
+      return isEmbed() && parent !== window &&
+        new URLSearchParams(parent.location.search).get('guide_center') === '1';
+    } catch {
+      return false;
+    }
+  };
   const dateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const parseDate = s => { const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d); };
   const addDays = (s,n) => { const d=parseDate(s); d.setDate(d.getDate()+n); return dateStr(d); };
@@ -32,8 +40,26 @@
     if(!res.ok || data?.ok===false) throw apiError(data,res.status);
     return data;
   }
-  async function publicBootstrap(from=today(),to=addMonths(from,2)){return json(`${C.API}/api/public/bootstrap?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)}
-  async function availability(date,staff=''){return json(`${C.API}/api/public/availability?date=${encodeURIComponent(date)}&staff=${encodeURIComponent(staff)}`)}
+  function guideBootstrap() {
+    return {
+      ok: true,
+      settings: {
+        open_time: '10:00',
+        close_time: '19:00',
+        regular_holidays: ''
+      },
+      staffs: [],
+      closedDays: []
+    };
+  }
+  async function publicBootstrap(from=today(),to=addMonths(from,2)){
+    if (isGuideTutorial()) return guideBootstrap();
+    return json(`${C.API}/api/public/bootstrap?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  }
+  async function availability(date,staff=''){
+    if (isGuideTutorial()) return {ok:true,date,staff,occupied:[]};
+    return json(`${C.API}/api/public/availability?date=${encodeURIComponent(date)}&staff=${encodeURIComponent(staff)}`);
+  }
   function ownerToken(){return sessionStorage.getItem(C.OWNER_KEY)||''}
   function setOwnerToken(t){ if(t)sessionStorage.setItem(C.OWNER_KEY,t); else sessionStorage.removeItem(C.OWNER_KEY); }
   async function owner(path,opts={}){ const t=ownerToken(); if(!t) throw apiError({error:'owner_session_required',message:'オーナーログインが必要です。'},401); const h=new Headers(opts.headers||{}); h.set('Authorization',`Bearer ${t}`); return json(`${C.API}${path}`,{...opts,headers:h}); }
@@ -57,5 +83,5 @@
   function message(id,text,type=''){ const e=q(id); if(!e)return; e.textContent=text||''; if(e.classList.contains('message')) e.className=`message${text?' show':''}${type?' '+type:''}`; }
   function demoBanner(){ if(!isEmbed())return; let b=q('embed-demo-banner'); if(!b){b=document.createElement('div');b.id='embed-demo-banner';b.style.cssText='position:sticky;top:0;z-index:9999;padding:9px 14px;text-align:center;background:#fff3cd;border-bottom:1px solid #e8cf79;color:#6a5210;font-size:12px;font-weight:800';b.textContent='製品紹介用デモ表示です。閲覧・画面操作はできますが、個人情報表示・登録・変更・削除は実行されません。';document.body.prepend(b);} else b.style.display='block'; }
   function authMessage(err){ if(err?.code==='LOGIN_FAILED') return 'オーナーアカウントが未登録、または管理コードが違います。SALONの実契約アカウントは契約時に発行します。公開DEMOは製品サイトの「ページ内で操作する」から確認できます。'; if(err?.code==='ORIGIN_NOT_ALLOWED') return '共通Owner Authの許可Origin確認が必要です。CENTRALへ返却してください。'; return err?.message || 'ログインに失敗しました。'; }
-  window.SALON3={...C,q,clean,esc,isEmbed,dateStr,parseDate,addDays,addMonths,today,fmtDate,fmtDateTime,timeOf,json,publicBootstrap,availability,ownerToken,setOwnerToken,owner,ownerLogin,ownerLogout,ownerSession,ownerBootstrap,issueStaff,staffToken,setStaffToken,staffBootstrap,takeStaffHash,isClosed,nextBusiness,slots,message,demoBanner,authMessage};
+  window.SALON3={...C,q,clean,esc,isEmbed,isGuideTutorial,dateStr,parseDate,addDays,addMonths,today,fmtDate,fmtDateTime,timeOf,json,publicBootstrap,availability,ownerToken,setOwnerToken,owner,ownerLogin,ownerLogout,ownerSession,ownerBootstrap,issueStaff,staffToken,setStaffToken,staffBootstrap,takeStaffHash,isClosed,nextBusiness,slots,message,demoBanner,authMessage};
 })();
