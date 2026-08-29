@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
-const QA_REV = 'SALON-R4-QA-READ-IDLE-FIX-V1.5-20260829';
+const QA_REV = 'SALON-R4-QA-QUIET-WINDOW-FIX-V1.6-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -135,33 +135,31 @@ async function qaViewport(browser, v) {
   const unsafe = [];
   const failedRequests = [];
   const publicReads = new Set();
+  let lastPublicReadActivity = Date.now();
+  const QUIET_MS = 2500;
   const isPublicRead = r => r.method() === 'GET' && /dpro-salon-line-api\.dpromstk2000\.workers\.dev/i.test(r.url());
+  const markPublicReadActivity = () => { lastPublicReadActivity = Date.now(); };
   const waitReadIdle = async (label = '') => {
     const started = Date.now();
-    let zeroSince = null;
-    while (Date.now() - started < 20000) {
-      if (publicReads.size === 0) {
-        if (zeroSince === null) zeroSince = Date.now();
-        if (Date.now() - zeroSince >= 700) return;
-      } else {
-        zeroSince = null;
-      }
+    while (Date.now() - started < 30000) {
+      const quietFor = Date.now() - lastPublicReadActivity;
+      if (publicReads.size === 0 && quietFor >= QUIET_MS) return;
       await sleep(100);
     }
-    throw new Error(`Public read idle timeout at ${label}: ${JSON.stringify([...publicReads].map(r => ({method:r.method(),url:r.url()})))}`);
+    throw new Error(`Public read quiet-window timeout at ${label}: ${JSON.stringify({quietFor:Date.now()-lastPublicReadActivity,inFlight:[...publicReads].map(r => ({method:r.method(),url:r.url()}))})}`);
   };
 
   page.on('pageerror', e => pageErrors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('request', r => {
-    if (isPublicRead(r)) publicReads.add(r);
+    if (isPublicRead(r)) { publicReads.add(r); markPublicReadActivity(); }
     if (BAD.has(r.method()) && (/dpro-salon|workers\.dev|\/api\//i.test(r.url()))) {
       unsafe.push({ method: r.method(), url: r.url() });
     }
   });
-  page.on('requestfinished', r => { if (isPublicRead(r)) publicReads.delete(r); });
+  page.on('requestfinished', r => { if (isPublicRead(r)) { publicReads.delete(r); markPublicReadActivity(); } });
   page.on('requestfailed', r => {
-    if (isPublicRead(r)) publicReads.delete(r);
+    if (isPublicRead(r)) { publicReads.delete(r); markPublicReadActivity(); }
     failedRequests.push({ method: r.method(), url: r.url(), failure: r.failure()?.errorText || '' });
   });
 
