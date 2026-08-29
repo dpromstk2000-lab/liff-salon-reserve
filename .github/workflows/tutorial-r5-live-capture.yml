@@ -1,0 +1,37 @@
+name: SALON Tutorial R5 LIVE Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tutorial-r5-live-capture.mjs'
+      - '.github/workflows/tutorial-r5-live-capture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  live-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: npm install --no-save playwright@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture current LIVE/demo screens
+        env:
+          DPRO_BASE: https://dpromstk2000-lab.github.io/liff-salon-reserve/
+        run: node tutorial-r5-live-capture.mjs
+      - name: Upload R5 live capture evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: salon-r5-live-captures
+          path: r5-live-captures/
+          if-no-files-found: error
+          retention-days: 14
