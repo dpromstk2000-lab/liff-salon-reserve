@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
-const QA_REV = 'SALON-R4-QA-NESTED-TARGET-FIX-V1.3-20260829';
+const QA_REV = 'SALON-R4-QA-ROUTE-STATE-FIX-V1.4-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -86,15 +86,38 @@ async function settle(page) {
   await sleep(300);
 }
 
+async function waitStepState(page, expectedStep, label = '') {
+  let last = null;
+  for (let i = 0; i < 120; i++) {
+    const probe = await page.evaluate(step => {
+      const frame = document.getElementById('guide-tutorial-frame');
+      const qa = frame?.contentWindow?.DPRO_TUTORIAL_QA;
+      if (!qa) return null;
+      const s = qa.snapshot();
+      const def = qa.STEPS?.[step - 1] || null;
+      return { snapshot: s, expectedRoute: def?.route || '' };
+    }, expectedStep).catch(() => null);
+    if (probe?.snapshot) last = probe;
+    if (probe?.snapshot?.step === expectedStep &&
+        probe.snapshot.first10Count === 10 &&
+        probe.snapshot.frameRoute === probe.expectedRoute) {
+      return probe.snapshot;
+    }
+    await sleep(120);
+  }
+  throw new Error(`Guide Center step/route state unresolved at ${label || `step ${expectedStep}`}: ${JSON.stringify(last)}`);
+}
+
 async function nextAndSettle(page) {
   const before = await frameSnap(page);
   await page.evaluate(() => document.getElementById('guide-tutorial-frame').contentWindow.DPRO_TUTORIAL_QA.next());
-  const s = await frameSnap(page);
+  let s = await frameSnap(page);
   if (s.status !== 'complete') {
-    await waitFrameTarget(page, `step ${before.step} -> ${s.step}`);
+    s = await waitStepState(page, before.step + 1, `step ${before.step} -> ${before.step + 1}`);
     await settle(page);
+    s = await waitStepState(page, before.step + 1, `settled step ${before.step + 1}`);
   }
-  return frameSnap(page);
+  return s;
 }
 
 async function qaViewport(browser, v) {
@@ -159,7 +182,7 @@ async function qaViewport(browser, v) {
   });
   assert(aligned, 'Guide / First10 route-target alignment failed');
 
-  // Move 1 -> 4 one step at a time, allowing read-only product bootstrap GETs to settle.
+  // Move 1 -> 4 one step at a time. R4 verifies step/route state; R3 reconfirm verifies actual target/highlight at every step.
   for (let i = 0; i < 3; i++) s = await nextAndSettle(page);
   assert(s.step === 4 && /staff\.html\?embed_demo=1/.test(s.frameRoute), 'Step 4 transition failed');
 
@@ -177,7 +200,7 @@ async function qaViewport(browser, v) {
   await settle(page);
   assert(s.step === 4 && /staff\.html\?embed_demo=1/.test(s.frameRoute), 'Guide Resume alignment failed');
 
-  // Complete 4 -> 10 sequentially, waiting for each route/target/read-only bootstrap.
+  // Complete 4 -> 10 sequentially, verifying every Guide step/route state. Actual target/highlight is covered by the R3 reconfirm in this same workflow run.
   for (let i = 0; i < 7; i++) s = await nextAndSettle(page);
   assert(s.status === 'complete', 'R3 completion through Guide failed');
 
