@@ -1,17 +1,32 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const OUT = process.env.DPRO_OUT || 'r5-live-captures';
 const BAD = new Set(['POST','PUT','PATCH','DELETE']);
 
+const MANUALS = [
+  {
+    name: 'Quick Start',
+    file: 'DPRO_TUTORIAL_SALON_QUICK_START_V1.0.pdf',
+    sha256: '547f841dfefa86210b024b526c7a2a0aa480e5d57ab333dfaf44aff39fb06d5b'
+  },
+  {
+    name: 'Detailed Manual',
+    file: 'DPRO_TUTORIAL_SALON_DETAILED_MANUAL_V1.0.pdf',
+    sha256: 'bac54fd1eedb1d5c24448a9833f67a180ae6f4ad7d122bceb666c03ee3d78023'
+  }
+];
+
 await fs.rm(OUT,{recursive:true,force:true});
 await fs.mkdir(OUT,{recursive:true});
 
 const evidence = {
-  revision: 'SALON-R5-LIVE-CAPTURE-V1.0-20260829',
+  revision: 'SALON-R5-LIVE-CAPTURE-PUBLIC-PDF-GATE-V1.1-20260829',
   base: BASE,
   screenshots: [],
+  publicManual: [],
   pageerrors: [],
   consoleErrors: [],
   unsafeWrites: [],
@@ -59,6 +74,38 @@ async function advanceTo(page, step){
     s=await waitTutorial(page,s.step+1);
   }
   return s;
+}
+
+async function verifyPublishedManual(m){
+  const url = `${BASE}${m.file}?r5pdf=${Date.now()}`;
+  const res = await fetch(url,{
+    redirect:'follow',
+    cache:'no-store',
+    headers:{'Accept':'application/pdf'}
+  });
+  const body = Buffer.from(await res.arrayBuffer());
+  const contentType = String(res.headers.get('content-type')||'');
+  const hash = crypto.createHash('sha256').update(body).digest('hex');
+  const magic = body.subarray(0,5).toString('ascii');
+  const result = {
+    name:m.name,
+    file:m.file,
+    url:`${BASE}${m.file}`,
+    status:res.status,
+    ok:res.ok,
+    contentType,
+    bytes:body.length,
+    magic,
+    sha256:hash,
+    expectedSha256:m.sha256,
+    exactSha256:hash===m.sha256
+  };
+  evidence.publicManual.push(result);
+  if(!res.ok) throw new Error(`Published manual HTTP failed: ${JSON.stringify(result)}`);
+  if(!/application\/pdf/i.test(contentType)) throw new Error(`Published manual content-type failed: ${JSON.stringify(result)}`);
+  if(magic!=='%PDF-') throw new Error(`Published manual magic failed: ${JSON.stringify(result)}`);
+  if(!result.exactSha256) throw new Error(`Published manual SHA256 mismatch: ${JSON.stringify(result)}`);
+  return result;
 }
 
 const browser = await chromium.launch({headless:true});
@@ -112,6 +159,8 @@ try{
   await shot(mg,'guide-center-mobile-390x844.png',{screen:'guide-center',mobile:true});
   await mobile.close();
 
+  for(const m of MANUALS) await verifyPublishedManual(m);
+
   if(evidence.unsafeWrites.length) throw new Error(`Unsafe business writes detected: ${JSON.stringify(evidence.unsafeWrites)}`);
   if(evidence.pageerrors.length) throw new Error(`Page errors detected: ${JSON.stringify(evidence.pageerrors)}`);
   evidence.status='PASS';
@@ -124,6 +173,10 @@ try{
   console.log(`R5_CAPTURE_RESULT=${JSON.stringify({
     revision:evidence.revision,
     screenshots:evidence.screenshots.length,
+    publicManual:evidence.publicManual.map(x=>({
+      file:x.file,status:x.status,contentType:x.contentType,bytes:x.bytes,
+      magic:x.magic,exactSha256:x.exactSha256
+    })),
     pageerror:evidence.pageerrors.length,
     consoleError:evidence.consoleErrors.length,
     unsafeWrite:evidence.unsafeWrites.length,
