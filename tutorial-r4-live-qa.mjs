@@ -4,7 +4,7 @@ const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-s
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
 const GUIDE_REV = 'SALON-GUIDE-BOOT-READY-V1.9-20260829';
-const QA_REV = 'SALON-R4-QA-PUBLISHED-REV-GATE-V1.10-20260829';
+const QA_REV = 'SALON-R4-QA-ACTION-STATE-SYNC-V1.11-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -53,6 +53,31 @@ async function frameQA(page) {
 
 async function frameSnap(page) {
   return page.evaluate(() => document.getElementById('guide-tutorial-frame').contentWindow.DPRO_TUTORIAL_QA.snapshot());
+}
+
+async function waitActionState(page, expectedStatus, expectedStep, label = '') {
+  let last = null;
+  for (let i = 0; i < 300; i++) {
+    const probe = await page.evaluate(() => {
+      const guide = window.DPRO_GUIDE_CENTER_QA?.snapshot?.() || null;
+      const qa = document.getElementById('guide-tutorial-frame')?.contentWindow?.DPRO_TUTORIAL_QA;
+      const tutorial = qa?.snapshot?.() || null;
+      return { guide, tutorial };
+    }).catch(() => null);
+    if (probe) last = probe;
+    if (probe?.guide?.overlayOpen &&
+        probe?.tutorial?.status === expectedStatus &&
+        probe?.tutorial?.step === expectedStep &&
+        probe?.tutorial?.card?.visible) {
+      return probe.tutorial;
+    }
+    await sleep(100);
+  }
+  const diagnostics = await page.evaluate(() => ({
+    progress: document.getElementById('guide-progress')?.textContent || '',
+    overlayOpen: window.DPRO_GUIDE_CENTER_QA?.snapshot?.().overlayOpen || false,
+  })).catch(() => ({}));
+  throw new Error(`Guide action state unresolved at ${label || `${expectedStatus} step ${expectedStep}`}: ${JSON.stringify({ last, diagnostics })}`);
 }
 
 async function waitFrameTarget(page, label = '') {
@@ -204,7 +229,8 @@ async function qaViewport(browser, v) {
   const startReadSeq = getReadActivitySeq();
   await page.keyboard.press('Enter');
   await frameQA(page);
-  let s = await waitFrameTarget(page, 'Guide Start step 1');
+  let s = await waitActionState(page, 'running', 1, 'Guide Start action');
+  s = await waitFrameTarget(page, 'Guide Start step 1');
   await waitReadIdle('Guide Start step 1', startReadSeq);
   await sleep(200);
   assert(s.step === 1 && s.first10Count === 10, 'Start alignment failed');
@@ -236,6 +262,7 @@ async function qaViewport(browser, v) {
 
   await page.click('#guide-resume');
   await frameQA(page);
+  s = await waitActionState(page, 'running', 4, 'Guide Resume action');
   s = await waitFrameTarget(page, 'Guide Resume step 4');
   await waitReadIdle('Guide Resume step 4');
   await sleep(200);
@@ -260,6 +287,7 @@ async function qaViewport(browser, v) {
   const replayReadSeq = getReadActivitySeq();
   await page.click('#guide-replay');
   await frameQA(page);
+  s = await waitActionState(page, 'running', 1, 'Guide Replay action');
   s = await waitFrameTarget(page, 'Guide Replay step 1');
   await waitReadIdle('Guide Replay step 1', replayReadSeq);
   await sleep(200);
