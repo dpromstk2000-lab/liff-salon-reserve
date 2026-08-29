@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.DPRO_BASE || 'https://dpromstk2000-lab.github.io/liff-salon-reserve/';
 const EXPECT = 'SALON-GUIDE-CENTER-R4-V1.0-20260829';
 const R3 = 'SALON-TUTORIAL-R3-V1.2-20260828';
-const QA_REV = 'SALON-R4-QA-QUIET-WINDOW-FIX-V1.6-20260829';
+const QA_REV = 'SALON-R4-QA-READ-CYCLE-FIX-V1.7-20260829';
 const VIEWPORTS = [
   { w: 1440, h: 1000, touch: false },
   { w: 1024, h: 768, touch: false },
@@ -108,14 +108,16 @@ async function waitStepState(page, expectedStep, label = '') {
   throw new Error(`Guide Center step/route state unresolved at ${label || `step ${expectedStep}`}: ${JSON.stringify(last)}`);
 }
 
-async function nextAndSettle(page, waitReadIdle) {
+async function nextAndSettle(page, waitReadIdle, getReadActivitySeq) {
   const before = await frameSnap(page);
   await waitReadIdle(`before step ${before.step} -> ${before.step + 1}`);
+  const actionReadSeq = getReadActivitySeq();
   await page.evaluate(() => document.getElementById('guide-tutorial-frame').contentWindow.DPRO_TUTORIAL_QA.next());
   let s = await frameSnap(page);
   if (s.status !== 'complete') {
     s = await waitStepState(page, before.step + 1, `step ${before.step} -> ${before.step + 1}`);
-    await waitReadIdle(`after step ${before.step + 1}`);
+    const routeChanged = s.frameRoute !== before.frameRoute;
+    await waitReadIdle(`after step ${before.step + 1}`, routeChanged ? actionReadSeq : null);
     await sleep(200);
     s = await waitStepState(page, before.step + 1, `settled step ${before.step + 1}`);
   }
@@ -136,17 +138,28 @@ async function qaViewport(browser, v) {
   const failedRequests = [];
   const publicReads = new Set();
   let lastPublicReadActivity = Date.now();
+  let publicReadActivitySeq = 0;
   const QUIET_MS = 2500;
   const isPublicRead = r => r.method() === 'GET' && /dpro-salon-line-api\.dpromstk2000\.workers\.dev/i.test(r.url());
-  const markPublicReadActivity = () => { lastPublicReadActivity = Date.now(); };
-  const waitReadIdle = async (label = '') => {
+  const markPublicReadActivity = () => {
+    lastPublicReadActivity = Date.now();
+    publicReadActivitySeq += 1;
+  };
+  const getReadActivitySeq = () => publicReadActivitySeq;
+  const waitReadIdle = async (label = '', activityAfter = null) => {
     const started = Date.now();
     while (Date.now() - started < 30000) {
       const quietFor = Date.now() - lastPublicReadActivity;
-      if (publicReads.size === 0 && quietFor >= QUIET_MS) return;
+      const activitySeen = activityAfter === null || publicReadActivitySeq > activityAfter;
+      if (activitySeen && publicReads.size === 0 && quietFor >= QUIET_MS) return;
       await sleep(100);
     }
-    throw new Error(`Public read quiet-window timeout at ${label}: ${JSON.stringify({quietFor:Date.now()-lastPublicReadActivity,inFlight:[...publicReads].map(r => ({method:r.method(),url:r.url()}))})}`);
+    throw new Error(`Public read cycle timeout at ${label}: ${JSON.stringify({
+      quietFor: Date.now() - lastPublicReadActivity,
+      activityAfter,
+      activitySeq: publicReadActivitySeq,
+      inFlight: [...publicReads].map(r => ({method:r.method(),url:r.url()})),
+    })}`);
   };
 
   page.on('pageerror', e => pageErrors.push(String(e)));
@@ -186,10 +199,11 @@ async function qaViewport(browser, v) {
   });
   assert(focus.id === 'guide-start' && focus.outline !== 'none', 'Guide focus not visible');
 
+  const startReadSeq = getReadActivitySeq();
   await page.keyboard.press('Enter');
   await frameQA(page);
   let s = await waitFrameTarget(page, 'Guide Start step 1');
-  await waitReadIdle('Guide Start step 1');
+  await waitReadIdle('Guide Start step 1', startReadSeq);
   await sleep(200);
   assert(s.step === 1 && s.first10Count === 10, 'Start alignment failed');
   assert(s.outer.innerWidth === v.w, 'Embedded Tutorial width mismatch');
@@ -205,7 +219,7 @@ async function qaViewport(browser, v) {
   assert(aligned, 'Guide / First10 route-target alignment failed');
 
   // Move 1 -> 4 one step at a time. R4 verifies step/route state; R3 reconfirm verifies actual target/highlight at every step.
-  for (let i = 0; i < 3; i++) s = await nextAndSettle(page, waitReadIdle);
+  for (let i = 0; i < 3; i++) s = await nextAndSettle(page, waitReadIdle, getReadActivitySeq);
   assert(s.step === 4 && /staff\.html\?embed_demo=1/.test(s.frameRoute), 'Step 4 transition failed');
 
   await page.locator('#guide-overlay-close').focus();
@@ -224,7 +238,7 @@ async function qaViewport(browser, v) {
   assert(s.step === 4 && /staff\.html\?embed_demo=1/.test(s.frameRoute), 'Guide Resume alignment failed');
 
   // Complete 4 -> 10 sequentially, verifying every Guide step/route state. Actual target/highlight is covered by the R3 reconfirm in this same workflow run.
-  for (let i = 0; i < 7; i++) s = await nextAndSettle(page, waitReadIdle);
+  for (let i = 0; i < 7; i++) s = await nextAndSettle(page, waitReadIdle, getReadActivitySeq);
   assert(s.status === 'complete', 'R3 completion through Guide failed');
 
   await page.click('#guide-overlay-close');
@@ -233,10 +247,11 @@ async function qaViewport(browser, v) {
   assert(g.replayVisible, 'Replay not exposed after complete');
 
   await waitReadIdle('before Guide Replay');
+  const replayReadSeq = getReadActivitySeq();
   await page.click('#guide-replay');
   await frameQA(page);
   s = await waitFrameTarget(page, 'Guide Replay step 1');
-  await waitReadIdle('Guide Replay step 1');
+  await waitReadIdle('Guide Replay step 1', replayReadSeq);
   await sleep(200);
   assert(s.step === 1 && s.status === 'running', 'Guide Replay alignment failed');
   await page.click('#guide-overlay-close');
